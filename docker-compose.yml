@@ -1,0 +1,10 @@
+services:
+  web:
+    build: .
+    container_name: lyx-front
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+      NEXT_PUBLIC_ORG_ID_ENTREGAS: ${NEXT_PUBLIC_ORG_ID_ENTREGAS}
