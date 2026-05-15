@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lyx Hub — Entregas de Sistemas",
-  description: "Portal interno de entrega, homologação e aceite de sistemas",
+  title: "Meu Sistema",
+  description: "Substitua pela descrição do seu sistema",
 };
 
 export default function RootLayout({

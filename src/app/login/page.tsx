@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
-const ORG_ID = process.env.NEXT_PUBLIC_ORG_ID_ENTREGAS;
+// ─── Personalizar aqui ─────────────────────────────────────────
+const BRAND = { prefix: "Meu", suffix: "Sistema", tagline: "Sub-título do sistema" };
+const ORG_ID = process.env.NEXT_PUBLIC_ORG_ID;
+// ───────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@lyx.test");
-  const [password, setPassword] = useState("admin_password_123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,7 +65,6 @@ export default function LoginPage() {
           boxShadow: "var(--shadow-md)",
         }}
       >
-        {/* Logo */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 24 }}>
           <div
             style={{
@@ -84,10 +86,11 @@ export default function LoginPage() {
           </div>
           <div style={{ textAlign: "center" }}>
             <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--text-primary)" }}>
-              Lyx<span style={{ color: "var(--accent)" }}>Hub</span>
+              {BRAND.prefix}
+              <span style={{ color: "var(--accent)" }}>{BRAND.suffix}</span>
             </h1>
             <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 2, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 600 }}>
-              Entregas de Sistemas
+              {BRAND.tagline}
             </p>
           </div>
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", textAlign: "center" }}>
@@ -106,6 +109,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
+              placeholder="voce@empresa.com"
             />
           </div>
           <div className="form-group">
