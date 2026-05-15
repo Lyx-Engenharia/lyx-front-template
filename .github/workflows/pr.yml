@@ -1,0 +1,57 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Defaults pra build/tests do front. Ajuste se algum step precisar de URL real.
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      # npm install (não npm ci) pra tolerar deps opcionais cross-platform
+      # (@emnapi/runtime, @img/sharp variantes) que diferem entre darwin (dev)
+      # e linux (runner). Lockfile permanece source of truth, mas npm faz
+      # patches in-place pra entries faltantes.
+      - run: npm install --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Run tests with coverage
+        run: npm run test:coverage
+      - name: Coverage gate global (Fase 1 — warn)
+        run: npm run coverage:gate
+        continue-on-error: true
+        env:
+          AUDIT_LINES_MIN: '50'
+          AUDIT_BRANCHES_MIN: '40'
+          AUDIT_GATE_MODE: 'warn'
+      - name: Dependency check (ciclos — error)
+        run: npm run deps:check
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-pr-${{ github.event.pull_request.number }}
+          path: coverage/
+          retention-days: 7
+      - name: Check AGENTS.md sync
+        run: |
+          npm run sync-agents
+          if [ -n "$(git status --porcelain CLAUDE.md .cursorrules .github/copilot-instructions.md)" ]; then
+            echo "::error::AGENTS.md está dessincronizado com as cópias. Rode 'npm run sync-agents' localmente e commite."
+            git diff CLAUDE.md .cursorrules .github/copilot-instructions.md
+            exit 1
+          fi
+          echo "AGENTS.md sync OK"
