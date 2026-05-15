@@ -1,0 +1,71 @@
+name: Audit Report
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: audit-report-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      # npm install (não npm ci) pra tolerar deps opcionais cross-platform.
+      - run: npm install --no-audit --no-fund
+      - name: Prepare audit dir
+        run: mkdir -p audit
+      - name: ESLint (json)
+        run: npx eslint . --format=json --output-file=audit/eslint.json
+        continue-on-error: true
+      - name: dependency-cruiser (json)
+        run: npx depcruise src --config .dependency-cruiser.cjs --output-type=json --output-to=audit/depcruise.json
+        continue-on-error: true
+      - name: Coverage
+        run: npm run test:coverage
+        continue-on-error: true
+      - name: Coverage gate global
+        run: npm run coverage:gate
+        continue-on-error: true
+        env:
+          AUDIT_LINES_MIN: '50'
+          AUDIT_BRANCHES_MIN: '40'
+          AUDIT_GATE_MODE: 'warn'
+      - name: Gerar relatório markdown
+        # --silent suprime os logs do npm ("> lyx-contratos-front@0.1.0 audit:report")
+        # pra que o output da redirect seja só o markdown puro (começando com o marker).
+        run: npm run --silent audit:report > audit/report.md
+        env:
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+      - name: Upsert comentário no PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          body=$(cat audit/report.md)
+          existing_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | startswith("<!-- audit-report -->")) | .id' \
+            | head -1)
+          if [ -n "$existing_id" ]; then
+            echo "atualizando comentário #$existing_id"
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing_id" \
+              -f body="$body" > /dev/null
+          else
+            echo "criando novo comentário"
+            gh pr comment "$PR_NUMBER" --body "$body"
+          fi
