@@ -2,11 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import Image from "next/image";
+import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
 // ─── Personalizar aqui ─────────────────────────────────────────
-const BRAND = { prefix: "Meu", suffix: "Sistema", tagline: "Sub-título do sistema" };
+const BRAND = {
+  prefix: "Meu",
+  suffix: "Sistema",
+  tagline: "Sub-título do sistema",
+  hero: "Hub de sistemas inteligentes",
+};
 const ORG_ID = process.env.NEXT_PUBLIC_ORG_ID;
 // ───────────────────────────────────────────────────────────────
 
@@ -14,6 +20,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,95 +51,248 @@ export default function LoginPage() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-        background: "var(--bg-primary)",
-      }}
-    >
+    <div className="relative flex min-h-screen" style={{ background: "var(--bg-primary)" }}>
+      {/* Left - Branding */}
       <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          background: "var(--bg-card)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-lg)",
-          padding: 32,
-          boxShadow: "var(--shadow-md)",
-        }}
+        className="relative hidden w-[55%] flex-col justify-between overflow-hidden p-14 lg:flex"
+        style={{ background: "var(--bg-secondary)" }}
       >
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <div className="pointer-events-none absolute inset-0">
           <div
+            className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full blur-[120px]"
+            style={{ background: "var(--accent-glow)" }}
+          />
+          <div
+            className="absolute -bottom-40 -right-20 h-[400px] w-[400px] rounded-full blur-[100px]"
+            style={{ background: "var(--accent-light)" }}
+          />
+          <div
+            className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px]"
+            style={{ background: "var(--accent-light)" }}
+          />
+
+          <div
+            className="absolute inset-0 opacity-[0.04]"
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: "var(--radius)",
-              background: "var(--accent)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 6px 16px rgba(2,88,100,0.3)",
+              backgroundImage: `linear-gradient(var(--text-primary) 1px, transparent 1px), linear-gradient(90deg, var(--text-primary) 1px, transparent 1px)`,
+              backgroundSize: "60px 60px",
             }}
-          >
-            <svg width="32" height="22" viewBox="0 0 20 14" fill="none">
-              <rect x="0" y="8" width="4" height="6" rx="1.5" fill="white" opacity="0.7" />
-              <rect x="8" y="4" width="4" height="10" rx="1.5" fill="white" opacity="0.85" />
-              <rect x="16" y="0" width="4" height="14" rx="1.5" fill="white" />
-            </svg>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--text-primary)" }}>
-              {BRAND.prefix}
-              <span style={{ color: "var(--accent)" }}>{BRAND.suffix}</span>
-            </h1>
-            <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 2, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 600 }}>
-              {BRAND.tagline}
-            </p>
-          </div>
-          <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", textAlign: "center" }}>
-            Entre com seu usuário corporativo
-          </p>
+          />
+
+          <div
+            className="absolute -right-20 top-1/4 h-px w-[600px] rotate-[30deg]"
+            style={{
+              backgroundImage:
+                "linear-gradient(90deg, transparent, var(--accent-glow), transparent)",
+            }}
+          />
+          <div
+            className="absolute -left-10 bottom-1/3 h-px w-[500px] rotate-[30deg]"
+            style={{
+              backgroundImage:
+                "linear-gradient(90deg, transparent, var(--accent-light), transparent)",
+            }}
+          />
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">E-mail</label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              placeholder="voce@empresa.com"
-            />
+        <div className="relative">
+          <Image src="/lyx-logo.png" alt="LYX" width={120} height={120} priority />
+        </div>
+
+        <div className="relative">
+          <h2
+            className="text-5xl font-bold leading-[1.15] tracking-tight"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {BRAND.prefix}
+            <span style={{ color: "var(--accent)" }}>{BRAND.suffix}</span>
+            <br />
+            <span style={{ color: "var(--accent)" }}>{BRAND.hero}</span>
+          </h2>
+
+          <div className="mt-12 flex gap-8">
+            <Stat value="Sistemas" label="Integrados" />
+            <Divider />
+            <Stat value="Times" label="Produtivos" />
+            <Divider />
+            <Stat value="Real" suffix="time" label="Atualizações ao vivo" />
           </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="password">Senha</label>
-            <input
-              id="password"
-              type="password"
-              className="form-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          {error && (
-            <p style={{ fontSize: "0.8rem", color: "var(--danger)" }}>{error}</p>
-          )}
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: "100%", padding: "12px 18px" }}>
-            {loading && <Loader2 size={16} className="animate-spin" />}
-            Entrar
-          </button>
-        </form>
+        </div>
+
+        <p className="relative text-xs" style={{ color: "var(--text-muted)" }}>
+          &copy; {new Date().getFullYear()} LYX. Todos os direitos reservados.
+        </p>
       </div>
-    </main>
+
+      {/* Right - Form */}
+      <div className="flex w-full items-center justify-center px-6 lg:w-[45%]">
+        <div className="w-full max-w-[420px]">
+          <div className="mb-10 lg:hidden">
+            <Image src="/lyx-logo.png" alt="LYX" width={80} height={80} priority />
+          </div>
+
+          <div
+            className="rounded-2xl p-8 sm:p-10"
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              boxShadow: "var(--shadow-lg)",
+            }}
+          >
+            <div className="mb-8">
+              <h1
+                className="text-2xl font-bold tracking-tight"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Bem-vindo de volta
+              </h1>
+              <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
+                {BRAND.tagline} — acesse sua conta
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  E-mail
+                </label>
+                <div className="relative">
+                  <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2">
+                    <Mail className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    placeholder="voce@empresa.com"
+                    className="w-full rounded-xl py-3 pl-11 pr-4 text-sm transition-all duration-200 focus:outline-none"
+                    style={{
+                      background: "var(--bg-input)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Senha
+                </label>
+                <div className="relative">
+                  <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2">
+                    <Lock className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className="w-full rounded-xl py-3 pl-11 pr-11 text-sm transition-all duration-200 focus:outline-none"
+                    style={{
+                      background: "var(--bg-input)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 transition-colors"
+                    style={{ color: "var(--text-muted)" }}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <div
+                  className="flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm"
+                  style={{
+                    background: "color-mix(in oklch, var(--danger) 10%, transparent)",
+                    border: "1px solid color-mix(in oklch, var(--danger) 30%, transparent)",
+                    color: "var(--danger)",
+                  }}
+                >
+                  <div
+                    className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                    style={{ background: "var(--danger)" }}
+                  />
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative mt-2 w-full overflow-hidden rounded-xl px-4 py-3.5 text-sm font-semibold transition-all duration-300 hover:brightness-110 disabled:opacity-50"
+                style={{
+                  background: "var(--accent)",
+                  color: "#ffffff",
+                  boxShadow: "var(--shadow-md)",
+                }}
+              >
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+
+                {loading ? (
+                  <span className="relative inline-flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Entrando...
+                  </span>
+                ) : (
+                  <span className="relative inline-flex items-center justify-center gap-2">
+                    Entrar
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </span>
+                )}
+              </button>
+            </form>
+          </div>
+
+          <p
+            className="mt-8 text-center text-xs lg:hidden"
+            style={{ color: "var(--text-muted)" }}
+          >
+            &copy; {new Date().getFullYear()} LYX. Todos os direitos reservados.
+          </p>
+        </div>
+      </div>
+    </div>
   );
+}
+
+function Stat({ value, suffix, label }: { value: string; suffix?: string; label: string }) {
+  return (
+    <div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
+          {value}
+        </span>
+        {suffix && (
+          <span className="text-sm font-medium" style={{ color: "var(--accent)" }}>
+            {suffix}
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function Divider() {
+  return <div className="h-12 w-px" style={{ background: "var(--border)" }} />;
 }
