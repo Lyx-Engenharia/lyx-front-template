@@ -25,9 +25,9 @@ import { dirname } from 'node:path';
 import { z } from 'zod';
 
 const EnvSchema = z.object({
-  AUDIT_LINES_MIN: z.coerce.number().int().min(0).max(100).default(50),
+  AUDIT_LINES_MIN: z.coerce.number().int().min(0).max(100).default(75),
   AUDIT_BRANCHES_MIN: z.coerce.number().int().min(0).max(100).default(40),
-  AUDIT_GATE_MODE: z.enum(['warn', 'error']).default('warn'),
+  AUDIT_GATE_MODE: z.enum(['warn', 'error']).default('error'),
 });
 
 export type LcovTotals = {

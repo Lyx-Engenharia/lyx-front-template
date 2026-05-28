@@ -1,0 +1,153 @@
+name: Lyx Audit (reusable)
+
+# ─── REUSABLE WORKFLOW — central pipeline de qualidade Lyx ────────────────
+# Outros repos chamam via:
+#
+#   jobs:
+#     audit:
+#       uses: Lyx-Engenharia/lyx-front-template/.github/workflows/lyx-audit.yml@main
+#       with:
+#         coverage-lines: 75
+#         coverage-branches: 40
+#
+# Scripts e configs vêm do TEMPLATE (não copy-paste). Repo consumidor só
+# precisa ter `vitest.config.ts`, `eslint.config.mjs`, `.dependency-cruiser.cjs`
+# e `package.json` com scripts canônicos (lint, typecheck, test:coverage,
+# audit:report). O reusable cuida do resto.
+#
+# Veja docs/TESTING.md pra entender como escrever cada tipo de teste.
+# ───────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_call:
+    inputs:
+      coverage-lines:
+        description: 'Mínimo % de cobertura de lines (default 75)'
+        type: number
+        default: 75
+      coverage-branches:
+        description: 'Mínimo % de cobertura de branches (default 40)'
+        type: number
+        default: 40
+      gate-mode:
+        description: '"warn" (não bloqueia) ou "error" (bloqueia merge)'
+        type: string
+        default: 'error'
+      node-version:
+        description: 'Versão do Node'
+        type: string
+        default: '20'
+      next-public-api-url:
+        description: 'Valor de NEXT_PUBLIC_API_URL pro build/tests'
+        type: string
+        default: 'http://localhost:3000'
+      skip-deps-check:
+        description: 'Pular dependency-cruiser (fronts simples)'
+        type: boolean
+        default: false
+    secrets:
+      github-token:
+        description: 'GITHUB_TOKEN pro bot postar comment'
+        required: true
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_API_URL: ${{ inputs.next-public-api-url }}
+      AUDIT_LINES_MIN: ${{ inputs.coverage-lines }}
+      AUDIT_BRANCHES_MIN: ${{ inputs.coverage-branches }}
+      AUDIT_GATE_MODE: ${{ inputs.gate-mode }}
+    steps:
+      # 1. Checkout do repo CONSUMIDOR
+      - name: Checkout consumer repo
+        uses: actions/checkout@v4
+
+      # 2. Checkout do TEMPLATE (scripts/audit) num path lateral
+      - name: Checkout lyx-front-template (audit scripts)
+        uses: actions/checkout@v4
+        with:
+          repository: Lyx-Engenharia/lyx-front-template
+          ref: main
+          path: _lyx-audit
+          token: ${{ secrets.github-token }}
+
+      # 3. Node + cache
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      # 4. Install deps do repo consumidor
+      - run: npm install --no-audit --no-fund
+
+      # 5. Lint (regra missing-spec é aplicada via eslint-plugin-lyx-rules — repo precisa ter)
+      - name: Lint
+        run: npm run lint
+
+      # 6. Typecheck
+      - name: Typecheck
+        run: npm run typecheck
+
+      # 7. Tests + coverage (vitest detect workspaces se houver)
+      - name: Tests + coverage
+        run: npm run test:coverage
+
+      # 8. Coverage gate (script vem do TEMPLATE — zero copy-paste)
+      - name: Coverage gate (per-module)
+        run: npx tsx _lyx-audit/scripts/audit/coverage-gate.ts
+
+      # 9. Dependency check (opcional)
+      - name: Dependency check (ciclos)
+        if: ${{ !inputs.skip-deps-check }}
+        run: npm run deps:check
+
+      # 10. Audit artifacts (ESLint + depcruise JSON pro report)
+      - name: Prepare audit dir
+        run: mkdir -p audit
+
+      - name: ESLint JSON
+        run: npx eslint . --format=json --output-file=audit/eslint.json
+        continue-on-error: true
+
+      - name: dependency-cruiser JSON
+        if: ${{ !inputs.skip-deps-check }}
+        run: npx depcruise src --config .dependency-cruiser.cjs --output-type=json --output-to=audit/depcruise.json
+        continue-on-error: true
+
+      # 11. Gerar markdown report (do TEMPLATE)
+      - name: Gerar markdown report
+        run: npx tsx _lyx-audit/scripts/audit/report.ts > audit/report.md
+        env:
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+
+      # 12. Upsert PR comment via marker
+      - name: Upsert PR comment
+        env:
+          GH_TOKEN: ${{ secrets.github-token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          body=$(cat audit/report.md)
+          existing_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | startswith("<!-- audit-report -->")) | .id' \
+            | head -1)
+          if [ -n "$existing_id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing_id" -f body="$body" > /dev/null
+          else
+            gh pr comment "$PR_NUMBER" --body "$body"
+          fi
+
+      # 13. Upload coverage como artifact (debug)
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-pr-${{ github.event.pull_request.number }}
+          path: coverage/
+          retention-days: 7
