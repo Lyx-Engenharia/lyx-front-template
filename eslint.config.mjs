@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import sonarjs from "eslint-plugin-sonarjs";
+import lyxRules from "./eslint-plugin-lyx-rules/index.js";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -17,22 +18,24 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "audit/**",
     "node_modules/**",
+    // Local plugin source (não auto-lintar):
+    "eslint-plugin-lyx-rules/**",
   ]),
-  // ── Auditoria automatizada — Fase 1 (severidade warn, rollout) ──────────────
+  // ── Auditoria automatizada (severidade ERROR — bloqueia merge) ────────────
   // Regras codificam disciplina de qualidade: nenhum arquivo passa de 500 linhas,
-  // nenhuma função passa de 80 linhas / CCN 12 / cognitive 15. Em Fase 1, são
-  // warnings (não bloqueiam merge). Sobe pra error quando hotspots legacy forem
-  // resolvidos. Como template, todo projeto que clonar herda essa baseline.
+  // nenhuma função passa de 80 linhas / CCN 12 / cognitive 15.
+  // Override em arquivo específico só com `// eslint-disable-next-line <rule>`
+  // + comentário justificando (revisor cobra).
   {
     files: ["src/**/*.{ts,tsx}"],
     rules: {
-      complexity: ["warn", 12],
+      complexity: ["error", 12],
       "max-lines": [
-        "warn",
+        "error",
         { max: 500, skipBlankLines: true, skipComments: true },
       ],
       "max-lines-per-function": [
-        "warn",
+        "error",
         { max: 80, skipBlankLines: true, skipComments: true, IIFEs: true },
       ],
     },
@@ -41,7 +44,17 @@ const eslintConfig = defineConfig([
     files: ["src/**/*.{ts,tsx}"],
     plugins: { sonarjs },
     rules: {
-      "sonarjs/cognitive-complexity": ["warn", 15],
+      "sonarjs/cognitive-complexity": ["error", 15],
+    },
+  },
+  // ── Lyx custom rules ──────────────────────────────────────────────────────
+  // missing-spec: arquivo *.service.ts ou *.controller.ts SEM *.spec.ts
+  // sibling = error. Força TDD na mesma PR.
+  {
+    files: ["src/**/*.{service,controller}.ts"],
+    plugins: { lyx: lyxRules },
+    rules: {
+      "lyx/missing-spec": "error",
     },
   },
   // Specs e fixtures podem ser longos por natureza (cenários acumulam).
@@ -60,7 +73,6 @@ const eslintConfig = defineConfig([
     },
   },
   // Override pra arquivos gerados por shadcn — não revisáveis manualmente.
-  // Desliga as 2 regras built-in do Next.js que disparam nesses templates.
   {
     files: [
       "src/components/ui/**",
@@ -71,9 +83,11 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
-  // TODO(2026-06-15): refatorar theme toggle (dashboard/layout.tsx + theme-toggle.tsx)
-  // pra ler localStorage via lazy initial state ao invés de setState dentro de useEffect.
-  // Por enquanto warn (era error built-in do Next.js 16) — segue Fase 1 (não bloqueia merge).
+  // TODO(2026-06-15): refatorar theme toggle pra lazy initial state.
+  // TODO(2026-06-15): split DashboardLayout (208 linhas) e LoginPage (237 linhas)
+  //   em sub-componentes. Por enquanto, override pra max-lines-per-function/complexity
+  //   nesses arquivos específicos — não é debt do audit pipeline, é debt do template
+  //   original que estava mascarado como warn.
   {
     files: [
       "src/app/dashboard/layout.tsx",
@@ -81,6 +95,14 @@ const eslintConfig = defineConfig([
     ],
     rules: {
       "react-hooks/set-state-in-effect": "warn",
+      "max-lines-per-function": "off",
+      complexity: "off",
+    },
+  },
+  {
+    files: ["src/app/login/page.tsx"],
+    rules: {
+      "max-lines-per-function": "off",
     },
   },
 ]);

@@ -79,59 +79,71 @@ Modelo de branches: **`feat/*` → PR → `develop` → PR → `main` → public
 - ❌ Editar `src/components/ui/*` manualmente
 - ❌ Editar `CLAUDE.md`/`.cursorrules`/`.github/copilot-instructions.md` direto (edite `AGENTS.md` e rode `npm run sync-agents`)
 - ❌ Commitar `.env.local`
-- ❌ Criar arquivo > 500 linhas ou função > 80 linhas (lint avisa — quebra em helpers / sub-componentes; vai virar bloqueante em Fase 2)
-- ❌ Função com cyclomatic > 12 ou cognitive > 15 (lint avisa; vai virar bloqueante em Fase 2)
+- ❌ Criar arquivo > 500 linhas ou função > 80 linhas (lint **bloqueia merge** — quebra em helpers / sub-componentes)
+- ❌ Função com cyclomatic > 12 ou cognitive > 15 (lint **bloqueia merge**)
+- ❌ Criar `*.service.ts` ou `*.controller.ts` sem `*.spec.ts` sibling (regra `lyx/missing-spec` **bloqueia merge**)
+- ❌ Coverage abaixo de 75% lines / 40% branches (gate **bloqueia merge**)
+- ❌ Mockar `fetch`/Better Auth/dep externa em `*.spec.ts` unit — isso é integration test, vai em `*.integration.spec.ts`
 
 ## Disciplina de testes
 
-**Stack:** Vitest + @vitest/coverage-v8.
+**Doc canônica:** [`docs/TESTING.md`](docs/TESTING.md). Leitura obrigatória pra qualquer dev/AI.
 
-**Convenção:**
+**Stack:** Vitest + @vitest/coverage-v8 + vitest workspaces (unit + integration).
 
-- Tests co-located: `*.spec.ts` (ou `.tsx`) ao lado da implementação.
-- Naming: `describe('Função/Componente', () => describe('caso', () => it('cenário concreto')))`.
-- Componentes UI gerados (`src/components/ui/**`) ficam fora do gate de coverage.
-- Server Actions: extrair lógica pura pra `src/lib/*` e testar ela. Não testar `'use server'` direto (precisa de Next runtime — fora de escopo).
-- Para hooks/components com efeitos colaterais, use `@testing-library/react` (adicionar quando precisar).
+**3 tipos de teste:**
+- **Unit** (`*.spec.ts`) — função pura, sem I/O. Cobre lógica/regras.
+- **Integration** (`*.integration.spec.ts`) — função + dep externa mockada (fetch, auth). Cobre contrato.
+- **Smoke** (workflow separado pós-deploy) — não bloqueia PR.
 
-> **Quando adicionar o primeiro `*.spec.tsx` de componente React**, instale `jsdom` como devDep (`npm install -D jsdom`) e mude `test.environment` de `'node'` pra `'jsdom'` no `vitest.config.ts`. Sem isso, tests de componentes vão falhar.
-> Atualmente os scripts rodam com `--passWithNoTests` e `environment: 'node'` (sem dep de jsdom) — permite CI verde mesmo sem tests, mas será removido quando o repo tiver primeira suíte estável.
+**Regras invioláveis (lint quebra):**
 
-**Coverage gate:**
+- 🔒 Todo `*.service.ts` e `*.controller.ts` precisa de `*.spec.ts` sibling (regra ESLint `lyx/missing-spec`).
+- 🔒 Coverage gate: `lines >= 75%`, `branches >= 40%`. **Modo `error`** — bloqueia merge se violar.
+- 🔒 Tests co-located: spec ao lado do arquivo testado, mesmo nome + `.spec.ts`.
+- 🔒 Naming: `describe('<arquivo>', () => describe('<função>', () => it('cenário concreto')))`. **NÃO** `it('works')`.
 
-- **Modo:** `warn` (Fase 1) — não bloqueia PR; só informa no relatório.
-- **Threshold global:** lines >= 50% (default). Adjust via env var `AUDIT_LINES_MIN`.
-- **Excluídos** (sem lógica testável): `src/components/ui/**`, pages/layouts/error/loading do App Router, `*.d.ts`, fixtures, types.
+**Exemplo canônico:** [`src/lib/example/calc.service.{ts,spec.ts,integration.spec.ts}`](src/lib/example/) — leia antes de criar testes novos.
 
 ## Auditoria automatizada (CI)
 
-Toda PR contra `develop`/`main` passa por checagens além de lint/typecheck/test:
+CI roda via [reusable workflow `lyx-audit.yml`](.github/workflows/lyx-audit.yml). Outros repos importam:
 
-- **Complexidade ciclomática** (`complexity` <= 12 por função, severidade warn em Fase 1)
-- **Complexidade cognitiva** (`sonarjs/cognitive-complexity` <= 15 por função, severidade warn em Fase 1)
-- **Tamanho de arquivo** (`max-lines` <= 500 linhas; specs e `__fixtures__/` excluídos; warn em Fase 1)
-- **Tamanho de função** (`max-lines-per-function` <= 80 linhas; warn em Fase 1)
-- **Cobertura global** (lines >= 50%, branches >= 40%). Fase 1: modo warn (não bloqueia).
-- **Ciclos de import** (zero — `dependency-cruiser` rule `no-circular`, severidade error — bloqueia desde dia 1)
+```yaml
+jobs:
+  audit:
+    uses: Lyx-Engenharia/lyx-front-template/.github/workflows/lyx-audit.yml@main
+    with:
+      coverage-lines: 75       # default
+      coverage-branches: 40    # default
+      gate-mode: error         # default
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+```
 
-Bot do GitHub posta relatório consolidado em cada PR (marker `<!-- audit-report -->`). Reproduz local com `npm run audit:report`.
+Checks (todos **error** — bloqueia merge):
 
-**Antes de abrir PR, valide local:**
+- **Complexidade ciclomática** (`complexity` <= 12 por função)
+- **Complexidade cognitiva** (`sonarjs/cognitive-complexity` <= 15)
+- **Tamanho de arquivo** (`max-lines` <= 500; specs e `__fixtures__/` excluídos)
+- **Tamanho de função** (`max-lines-per-function` <= 80)
+- **Missing spec** (`lyx/missing-spec`) — `*.service.ts`/`*.controller.ts` sem `*.spec.ts`
+- **Cobertura** (lines >= 75%, branches >= 40%)
+- **Ciclos de import** (`dependency-cruiser` rule `no-circular`)
+
+Bot posta relatório consolidado em cada PR (marker `<!-- audit-report -->`). Reproduz local com `npm run audit:report`.
+
+**Antes de abrir PR:**
 
 ```bash
 npm run audit:all
 ```
 
-Roda em sequência (abortando se algo falhar): `lint → typecheck → deps:check → test:coverage → coverage:gate → audit:report`. Se passa local, passa no CI.
+Pipeline completo: lint → typecheck → deps:check → test:coverage → coverage:gate → audit:report. Se passa local, passa no CI.
 
-**Fases (atual: Fase 1):**
+> Como template, qualquer front novo nasce com pipeline ativo — basta importar o reusable workflow.
 
-- **Fase 1 (ATUAL — rollout):** complexity/max-lines/cognitive/coverage como `warn`. Não bloqueia merge — sobe baseline antes de virar bloqueante. Ciclos de import já bloqueiam (error).
-- **Fase 2 (futura):** quando hotspots legacy forem resolvidos, sobe severidades pra `error`.
-
-> Como template, essa baseline vai junto com o clone — qualquer front novo nasce com Fase 1 ativa.
-
-Doc detalhada: [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md).
+Doc detalhada: [`docs/TESTING.md`](docs/TESTING.md) (didática) + [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md) (referência).
 
 ## Comandos úteis
 
@@ -142,7 +154,9 @@ Doc detalhada: [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md
 | `npm run start` | next start |
 | `npm run lint` | ESLint (Next + audit rules) |
 | `npm run typecheck` | tsc --noEmit |
-| `npm test` | vitest run |
+| `npm test` | vitest run (unit + integration) |
+| `npm run test:unit` | só unit (rápido) |
+| `npm run test:integration` | só integration |
 | `npm run test:watch` | vitest (watch mode) |
 | `npm run test:coverage` | vitest com lcov |
 | `npm run deps:check` | dependency-cruiser: ciclos de import |
@@ -151,15 +165,16 @@ Doc detalhada: [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md
 | `npm run audit:all` | pipeline completo local: lint + typecheck + deps:check + test:coverage + coverage:gate + audit:report |
 | `npm run sync-agents` | copia AGENTS.md pros 3 alvos (CLAUDE/cursor/copilot) |
 
-## Pré-requisitos manuais (admin do repo)
+## Branching tier (escope do repo)
 
-- **Branch protection** em `main` E `develop`: PR obrigatório, 1 approve, status check `validate` (do `pr.yml`) tem que passar, sem force push
-- **Default branch:** `develop` (PRs novas caem aqui automaticamente)
-- **Vars de build (no front clonado):** `NEXT_PUBLIC_API_URL` apontando pro monolito de prod
+Este repo é **sandbox** (categoria 4 do branching tier Lyx) — sem rulesets, sem CODEOWNERS forçado. Veja `lyx-monolith/docs/adr/0004-branching-tier-system.md` pra contexto completo.
+
+> Apesar de sandbox, este template é **fonte canônica do CI/audit** dos fronts/BIs Lyx. Mudanças aqui propagam (via reusable workflow) pra todos os repos consumidores no próximo PR deles.
 
 ## Referências
 
-- [`docs/DEV_WORKFLOW.md`](docs/DEV_WORKFLOW.md) — fluxo PR → review → merge
-- [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md) — detalhe das checagens do CI
+- [`docs/TESTING.md`](docs/TESTING.md) — **doc canônica de testes** (leitura obrigatória)
+- [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md) — detalhe técnico das checagens do CI
+- [`.github/workflows/lyx-audit.yml`](.github/workflows/lyx-audit.yml) — reusable workflow consumido por outros repos
 - `lyx-monolith` — backend que serve auth + API (`api.lyxai.com.br`)
-- `lyx-contratos-front` — primeiro front a usar esse template (referência de uso real)
+- `lyx-monolith/docs/adr/0004-branching-tier-system.md` — governança org-wide
