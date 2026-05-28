@@ -1,11 +1,15 @@
 name: PR Validation
 
-# Workflow do PRÓPRIO template — dogfood do reusable lyx-audit.
-# Outros repos copiam ESTE arquivo (mas alterando `uses:` pra apontar pro main do template:
+# Dogfood do reusable lyx-audit.
+# Outros repos usam EXATAMENTE este formato, alterando apenas `uses:`:
 #   uses: Lyx-Engenharia/lyx-front-template/.github/workflows/lyx-audit.yml@main
 on:
   pull_request:
     branches: [main, develop]
+
+permissions:
+  pull-requests: write
+  contents: read
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
@@ -18,8 +22,6 @@ jobs:
       coverage-lines: 75
       coverage-branches: 40
       gate-mode: error
-    secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
 
   agents-sync-check:
     # Específico do TEMPLATE (não vai pros outros repos). Garante que AGENTS.md
