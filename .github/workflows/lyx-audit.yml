@@ -16,6 +16,14 @@ name: Lyx Audit (reusable)
 # audit:report). O reusable cuida do resto.
 #
 # Veja docs/TESTING.md pra entender como escrever cada tipo de teste.
+#
+# ─── DESIGN ───────────────────────────────────────────────────────────────
+# Cada check (lint/typecheck/tests/coverage/deps) usa `continue-on-error: true`
+# pra que TODOS rodem mesmo se algum falhar. No final, um step de "Fail job"
+# avalia outcomes e decide se o job overall passa ou falha.
+#
+# Resultado: dev sempre recebe um comment no PR mostrando TUDO que falhou
+# (não só o primeiro). Sem early-exit que deixa o report mudo.
 # ───────────────────────────────────────────────────────────────────────────
 
 on:
@@ -82,62 +90,89 @@ jobs:
       # 4. Install deps do repo consumidor
       - run: npm install --no-audit --no-fund
 
-      # 5. Lint (regra missing-spec é aplicada via eslint-plugin-lyx-rules — repo precisa ter)
+      # 5. Lint
       - name: Lint
+        id: lint
         run: npm run lint
+        continue-on-error: true
 
       # 6. Typecheck
       - name: Typecheck
+        id: typecheck
         run: npm run typecheck
+        continue-on-error: true
 
-      # 7. Tests + coverage (vitest detect workspaces se houver)
+      # 7. Tests + coverage
       - name: Tests + coverage
+        id: tests
         run: npm run test:coverage
+        continue-on-error: true
 
-      # 8. Coverage gate (script vem do TEMPLATE — zero copy-paste)
-      - name: Coverage gate (per-module)
+      # 8. Coverage gate (script do TEMPLATE)
+      # Roda mesmo se tests falhou (talvez gerou lcov parcial)
+      - name: Coverage gate (global)
+        id: coverage_gate
+        if: always()
         run: npx tsx _lyx-audit/scripts/audit/coverage-gate.ts
+        continue-on-error: true
 
       # 9. Dependency check (opcional)
       - name: Dependency check (ciclos)
+        id: deps_check
         if: ${{ !inputs.skip-deps-check }}
         run: npm run deps:check
+        continue-on-error: true
 
-      # 10. Audit artifacts (ESLint + depcruise JSON pro report)
+      # 10. Audit artifacts — sempre rodam pra alimentar o report
       - name: Prepare audit dir
+        if: always()
         run: mkdir -p audit
 
       - name: ESLint JSON
+        if: always()
         run: npx eslint . --format=json --output-file=audit/eslint.json
         continue-on-error: true
 
       - name: dependency-cruiser JSON
-        if: ${{ !inputs.skip-deps-check }}
+        if: ${{ always() && !inputs.skip-deps-check }}
         run: npx depcruise src --config .dependency-cruiser.cjs --output-type=json --output-to=audit/depcruise.json
         continue-on-error: true
 
-      # 11. Gerar markdown report (do TEMPLATE)
+      # 11. Gerar markdown report (sempre)
       - name: Gerar markdown report
+        if: always()
         run: npx tsx _lyx-audit/scripts/audit/report.ts > audit/report.md
         env:
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+        continue-on-error: true
 
-      # 12. Upsert PR comment via marker
+      # 12. Upsert PR comment (sempre)
       - name: Upsert PR comment
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
+          if [ ! -s audit/report.md ]; then
+            echo "<!-- audit-report -->" > audit/report.md
+            echo "" >> audit/report.md
+            echo "## 🤖 Audit Report — \`${GITHUB_SHA:0:7}\`" >> audit/report.md
+            echo "" >> audit/report.md
+            echo "⚠️ Report generation failed. Veja [logs do CI](https://github.com/${REPO}/actions/runs/${{ github.run_id }}) pra detalhes." >> audit/report.md
+          fi
           body=$(cat audit/report.md)
           existing_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.body | startswith("<!-- audit-report -->")) | .id' \
             | head -1)
           if [ -n "$existing_id" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$existing_id" -f body="$body" > /dev/null
+            echo "Comment atualizado: #$existing_id"
           else
             gh pr comment "$PR_NUMBER" --body "$body"
+            echo "Comment criado"
           fi
+        continue-on-error: true
 
       # 13. Upload coverage como artifact (debug)
       - name: Upload coverage
@@ -147,3 +182,44 @@ jobs:
           name: coverage-pr-${{ github.event.pull_request.number }}
           path: coverage/
           retention-days: 7
+
+      # 14. Fail job se algum check CRÍTICO falhou
+      # Avalia outcomes de cada check e exit 1 com sumário claro.
+      # Mode `warn`: nada bloqueia merge (mas comment ainda mostra status).
+      # Mode `error` (default): qualquer falha em lint/typecheck/tests/coverage/deps bloqueia.
+      - name: Avaliar status final
+        if: always()
+        env:
+          LINT: ${{ steps.lint.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          COVERAGE: ${{ steps.coverage_gate.outcome }}
+          DEPS: ${{ steps.deps_check.outcome }}
+          GATE_MODE: ${{ inputs.gate-mode }}
+        run: |
+          echo "=== Resultados ==="
+          echo "Lint:           $LINT"
+          echo "Typecheck:      $TYPECHECK"
+          echo "Tests+coverage: $TESTS"
+          echo "Coverage gate:  $COVERAGE"
+          echo "Deps check:     $DEPS"
+          echo "Gate mode:      $GATE_MODE"
+          echo ""
+
+          if [ "$GATE_MODE" = "warn" ]; then
+            echo "Mode=warn — job sempre verde (apenas informativo)."
+            exit 0
+          fi
+
+          FAILED=""
+          [ "$LINT" = "failure" ]      && FAILED="$FAILED lint"
+          [ "$TYPECHECK" = "failure" ] && FAILED="$FAILED typecheck"
+          [ "$TESTS" = "failure" ]     && FAILED="$FAILED tests"
+          [ "$COVERAGE" = "failure" ]  && FAILED="$FAILED coverage"
+          [ "$DEPS" = "failure" ]      && FAILED="$FAILED deps"
+
+          if [ -n "$FAILED" ]; then
+            echo "::error::Falhas:$FAILED — veja o comment do bot no PR ou os logs acima."
+            exit 1
+          fi
+          echo "Tudo verde."
