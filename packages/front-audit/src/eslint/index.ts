@@ -37,7 +37,7 @@ const config: Linter.Config[] = [
   // Regra custom Lyx: missing-spec.
   {
     files: ['src/**/*.{service,controller}.ts'],
-    plugins: { lyx: { rules: { 'missing-spec': missingSpec } } },
+    plugins: { lyx: { meta: { name: 'eslint-plugin-lyx' }, rules: { 'missing-spec': missingSpec } } },
     rules: { 'lyx/missing-spec': 'error' },
   },
   // Specs/fixtures/shadcn podem ser longos / gerados.

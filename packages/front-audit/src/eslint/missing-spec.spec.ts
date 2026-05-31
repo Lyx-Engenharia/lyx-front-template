@@ -9,12 +9,15 @@ import rule from './missing-spec';
 RuleTester.describe = describe;
 RuleTester.it = it;
 
-// cria um dir temp com um service + (opcional) seu spec sibling
-function fixture(withSpec: boolean): { serviceFile: string } {
+// cria um dir temp com um arquivo principal + (opcional) seu spec sibling
+function fixture(withSpec: boolean, filename = 'users.service.ts'): { serviceFile: string } {
   const dir = mkdtempSync(join(tmpdir(), 'lyx-missing-spec-'));
-  const serviceFile = join(dir, 'users.service.ts');
+  const serviceFile = join(dir, filename);
   writeFileSync(serviceFile, 'export class UsersService {}\n');
-  if (withSpec) writeFileSync(join(dir, 'users.service.spec.ts'), '');
+  if (withSpec) {
+    const specName = filename.replace(/\.ts$/, '.spec.ts');
+    writeFileSync(join(dir, specName), '');
+  }
   return { serviceFile };
 }
 
@@ -47,3 +50,24 @@ tester.run('lyx/missing-spec — ignora arquivos que não são service/controlle
     invalid: [],
   };
 })());
+
+tester.run('lyx/missing-spec — reporta quando falta o spec sibling do controller', rule, {
+  valid: [],
+  invalid: [
+    {
+      code: 'export class FooController {}',
+      filename: fixture(false, 'foo.controller.ts').serviceFile,
+      errors: [{ messageId: 'missingSpec' }],
+    },
+  ],
+});
+
+tester.run('lyx/missing-spec — ignora o próprio arquivo spec (.service.spec.ts)', rule, {
+  valid: [
+    {
+      code: 'import {} from "./users.service";',
+      filename: fixture(false, 'users.service.spec.ts').serviceFile,
+    },
+  ],
+  invalid: [],
+});

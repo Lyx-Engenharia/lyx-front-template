@@ -9,7 +9,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.spec.ts', 'src/eslint/index.ts'],
+      exclude: ['src/**/*.spec.ts', 'src/eslint/index.ts'], // declarative config (shape asserted by index.spec.ts)
     },
   },
 });
