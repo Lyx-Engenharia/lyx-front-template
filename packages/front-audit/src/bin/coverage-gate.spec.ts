@@ -69,4 +69,8 @@ describe('parseEnv', () => {
   it('rejeita modo inválido', () => {
     expect(() => parseEnv({ AUDIT_GATE_MODE: 'blah' })).toThrow();
   });
+  it('trata string vazia como ausente → usa default (env vazio no CI não zera o gate)', () => {
+    expect(parseEnv({ AUDIT_LINES_MIN: '', AUDIT_BRANCHES_MIN: '', AUDIT_GATE_MODE: '' }))
+      .toEqual({ AUDIT_LINES_MIN: 75, AUDIT_BRANCHES_MIN: 40, AUDIT_GATE_MODE: 'error' });
+  });
 });

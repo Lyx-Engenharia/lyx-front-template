@@ -17,6 +17,8 @@ export type AuditEnv = {
 };
 
 function pctEnv(raw: string | undefined, fallback: number): number {
+  // Empty/whitespace treated as absent → safe default. Intentional: an empty CI
+  // env var (e.g. AUDIT_LINES_MIN='') must NOT silently zero the coverage gate.
   if (raw === undefined || raw.trim() === '') return fallback;
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 0 || n > 100) {
@@ -26,6 +28,7 @@ function pctEnv(raw: string | undefined, fallback: number): number {
 }
 
 function modeEnv(raw: string | undefined): 'warn' | 'error' {
+  // Same rationale: empty string → safe default 'error', not a silent no-op.
   if (raw === undefined || raw.trim() === '') return 'error';
   if (raw !== 'warn' && raw !== 'error') {
     throw new Error(`AUDIT_GATE_MODE inválido (warn|error): "${raw}"`);
@@ -115,7 +118,7 @@ export function evaluateGate(global: LcovTotals, t: Thresholds): GateResult {
   return { passed: violations.length === 0, violations };
 }
 
-export function decideExitCode(gate: GateResult, mode: string): 0 | 1 {
+export function decideExitCode(gate: GateResult, mode: 'warn' | 'error'): 0 | 1 {
   return !gate.passed && mode === 'error' ? 1 : 0;
 }
 
