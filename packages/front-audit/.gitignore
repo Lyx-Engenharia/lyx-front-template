@@ -1,0 +1,3 @@
+# build artifacts — dist/ is covered by root .gitignore (no leading slash = recursive)
+# coverage output from vitest --coverage
+coverage/
