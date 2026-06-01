@@ -14,6 +14,17 @@ describe('@lyxai/front-audit/eslint', () => {
     expect(block?.rules?.['max-lines-per-function']).toEqual(['error', { max: 80, skipBlankLines: true, skipComments: true, IIFEs: true }]);
   });
 
+  it('alveja **/*.{ts,tsx} (layout-agnostic — gateia src/ e app-router-na-raiz)', () => {
+    const block = config.find((c) => c.rules?.complexity);
+    expect(block?.files).toContain('**/*.{ts,tsx}');
+  });
+
+  it('globalIgnores exclui não-fonte (scripts, configs) p/ não surgir dívida falsa', () => {
+    const ignoreBlock = config.find((c) => Array.isArray(c.ignores) && !c.files);
+    expect(ignoreBlock?.ignores).toContain('scripts/**');
+    expect(ignoreBlock?.ignores).toContain('**/*.config.{ts,js,cjs,mjs}');
+  });
+
   it('tem sonarjs/cognitive-complexity e lyx/missing-spec como error', () => {
     const cog = config.find((c) => c.rules?.['sonarjs/cognitive-complexity']);
     expect(cog?.rules?.['sonarjs/cognitive-complexity']).toEqual(['error', 15]);
