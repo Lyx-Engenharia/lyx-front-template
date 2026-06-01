@@ -72,14 +72,10 @@ jobs:
       - name: Checkout consumer repo
         uses: actions/checkout@v4
 
-      # 2. Checkout do TEMPLATE (scripts/audit) num path lateral
-      # Template é público — checkout sem token específico funciona.
-      - name: Checkout lyx-front-template (audit scripts)
-        uses: actions/checkout@v4
-        with:
-          repository: Lyx-Engenharia/lyx-front-template
-          ref: main
-          path: _lyx-audit
+      # (CONTRACT) O checkout do template em _lyx-audit/ foi REMOVIDO: os bins vêm
+      # do pacote publicado @lyxai/front-audit (npx self-fetch via -p). Clonar o
+      # template inteiro poluía o typecheck/vitest do consumidor (ex.: tsc batia em
+      # _lyx-audit/packages/front-audit/tsup.config.ts → "Cannot find module 'tsup'").
 
       # 3. Node + cache
       - uses: actions/setup-node@v4
@@ -116,7 +112,7 @@ jobs:
       - name: Coverage gate (global)
         id: coverage_gate
         if: always()
-        run: npx -y -p @lyxai/front-audit@^0 lyx-coverage-gate || npx tsx _lyx-audit/scripts/audit/coverage-gate.ts
+        run: npx -y -p @lyxai/front-audit@^0 lyx-coverage-gate
         continue-on-error: true
 
       # 9. Dependency check (opcional)
@@ -144,7 +140,7 @@ jobs:
       # 11. Gerar markdown report (sempre) — bin do pacote, fallback pro script clonado.
       - name: Gerar markdown report
         if: always()
-        run: npx -y -p @lyxai/front-audit@^0 lyx-audit-report > audit/report.md || npx tsx _lyx-audit/scripts/audit/report.ts > audit/report.md
+        run: npx -y -p @lyxai/front-audit@^0 lyx-audit-report > audit/report.md
         env:
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
         continue-on-error: true
