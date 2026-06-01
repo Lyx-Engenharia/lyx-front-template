@@ -17,8 +17,8 @@
     "./dependency-cruiser": "./dependency-cruiser.cjs"
   },
   "bin": {
-    "lyx-coverage-gate": "./dist/bin/coverage-gate.js",
-    "lyx-audit-report": "./dist/bin/report.js"
+    "lyx-coverage-gate": "dist/bin/coverage-gate.js",
+    "lyx-audit-report": "dist/bin/report.js"
   },
   "files": ["dist", "dependency-cruiser.cjs"],
   "scripts": {
