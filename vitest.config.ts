@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import { lyxCoverageExclude } from '@lyxai/front-audit/vitest-coverage';
 
 /**
  * Vitest config — lyx-front-template
@@ -27,19 +28,9 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
-        '**/*.d.ts',
-        '**/*.{test,spec}.{ts,tsx}',
-        '**/__fixtures__/**',
-        '**/__mocks__/**',
-        'src/**/types.ts',
-        'src/components/ui/**',
-        'src/app/**/layout.tsx',
-        'src/app/**/loading.tsx',
-        'src/app/**/error.tsx',
-        'src/app/**/not-found.tsx',
-        'src/app/**/page.tsx',
-        'src/app/globals.css',
-        'src/app/favicon.ico',
+        // Base genérica compartilhada (specs, fixtures, App Router boilerplate,
+        // shadcn ui, types). Vem de @lyxai/front-audit/vitest-coverage.
+        ...lyxCoverageExclude,
         // ── Excludes específicos do TEMPLATE (não copie pros repos consumidores!) ──
         // Esses arquivos são referência (devs copiam pra novo front e testam lá).
         // No template, ficam fora do gate. Em repo consumidor REMOVER estes excludes.

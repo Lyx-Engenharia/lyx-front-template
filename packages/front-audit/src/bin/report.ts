@@ -12,6 +12,7 @@
  *   coverage/gate.json      (gerado por coverage-gate.ts)
  */
 import { readFileSync, existsSync } from 'node:fs';
+import { isEntryPoint } from './is-entry';
 
 type EslintMsg = {
   ruleId: string | null;
@@ -242,9 +243,5 @@ function main() {
   process.stdout.write(renderReport({ commitSha, eslint, depcruise, coverage }));
 }
 
-// tsx executa o arquivo direto como entry point — checamos via process.argv[1].
-const entry = process.argv[1] ?? '';
-if (entry.endsWith('report.ts') || entry.endsWith('report.js')) {
-  main();
-}
+if (isEntryPoint(process.argv[1], import.meta.url)) main();
 /* v8 ignore stop */

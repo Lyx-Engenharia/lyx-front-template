@@ -2,6 +2,7 @@
   "name": "lyx-front-template",
   "version": "1.0.0",
   "private": true,
+  "workspaces": ["packages/*"],
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
@@ -14,8 +15,8 @@
     "test:watch": "vitest --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "deps:check": "depcruise src --config .dependency-cruiser.cjs",
-    "coverage:gate": "tsx scripts/audit/coverage-gate.ts",
-    "audit:report": "tsx scripts/audit/report.ts",
+    "coverage:gate": "lyx-coverage-gate",
+    "audit:report": "lyx-audit-report",
     "audit:all": "npm run lint && npm run typecheck && npm run deps:check && npm run test:coverage && npm run coverage:gate && npm run audit:report",
     "sync-agents": "tsx scripts/sync-agents.ts"
   },
@@ -44,6 +45,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@lyxai/front-audit": "*",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

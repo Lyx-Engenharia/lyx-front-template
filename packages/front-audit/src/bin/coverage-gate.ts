@@ -9,6 +9,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { isEntryPoint } from './is-entry';
 
 export type AuditEnv = {
   AUDIT_LINES_MIN: number;
@@ -143,6 +144,5 @@ function main(): void {
   if (code !== 0) process.exit(code);
 }
 
-const entry = process.argv[1] ?? '';
-if (entry.endsWith('coverage-gate.js') || entry.endsWith('coverage-gate.ts')) main();
+if (isEntryPoint(process.argv[1], import.meta.url)) main();
 /* v8 ignore stop */
