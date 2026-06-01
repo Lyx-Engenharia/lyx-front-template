@@ -20,4 +20,9 @@ describe('@lyxai/front-audit/eslint', () => {
     const lyx = config.find((c) => c.rules?.['lyx/missing-spec']);
     expect(lyx?.rules?.['lyx/missing-spec']).toBe('error');
   });
+
+  it('ignora _lyx-audit/** (band-aid transitório do clone no CI — remover na Fase 3)', () => {
+    const ignoreBlock = config.find((c) => Array.isArray(c.ignores) && !c.files);
+    expect(ignoreBlock?.ignores).toContain('_lyx-audit/**');
+  });
 });

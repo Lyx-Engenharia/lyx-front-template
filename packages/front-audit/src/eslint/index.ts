@@ -19,6 +19,10 @@ const config: Linter.Config[] = [
     'coverage/**',
     'audit/**',
     'node_modules/**',
+    // Transitório (expand-contract): o reusable `lyx-audit.yml` clona o template
+    // inteiro em `_lyx-audit/` durante o CI; o `eslint` da raiz não deve lintar
+    // esse código vendorizado. REMOVER na Fase 3 (contract), quando o clone sumir.
+    '_lyx-audit/**',
   ]),
   // Regras de auditoria — severidade error (bloqueia merge).
   {
