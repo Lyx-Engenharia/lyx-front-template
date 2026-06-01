@@ -17,11 +17,12 @@ const eslintConfig = [
   // Ignores específicos do TEMPLATE — o lint da app não cobre:
   // - packages/** : o workspace @lyxai/front-audit tem build/test próprios (tsup + vitest).
   // - eslint-plugin-lyx-rules/** : cópia local transitória (expand-contract; some na Fase 3).
-  // - *.cjs : arquivos de config CJS (ex.: .dependency-cruiser.cjs reexporta o preset via require).
+  // - .dependency-cruiser.cjs : config CJS que reexporta o preset via require (dispara no-require-imports).
+  //   Ignore estreito de propósito — não usar "**/*.cjs" pra não silenciar lint de .cjs futuros.
   globalIgnores([
     "packages/**",
     "eslint-plugin-lyx-rules/**",
-    "**/*.cjs",
+    ".dependency-cruiser.cjs",
   ]),
   // ── Overrides app-specific do TEMPLATE ────────────────────────────────────
   // TODO(2026-06-15): refatorar theme toggle pra lazy initial state.
