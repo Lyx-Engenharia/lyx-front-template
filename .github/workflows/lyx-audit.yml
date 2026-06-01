@@ -104,11 +104,9 @@ jobs:
         run: npm run test:coverage
         continue-on-error: true
 
-      # 8. Coverage gate — bin do pacote @lyxai/front-audit (fallback: script clonado).
-      # EXPAND-CONTRACT (Fase 1): prefere o bin publicado. Precisa de `-p <pacote>`
-      # porque o nome do bin (lyx-coverage-gate) != nome do pacote (@lyxai/front-audit);
-      # `npx` faz self-fetch público, então funciona mesmo em front ainda não migrado.
-      # Cai pro script clonado de _lyx-audit/ se o bin falhar. Clone+fallback saem na Fase 3.
+      # 8. Coverage gate — bin do pacote publicado @lyxai/front-audit.
+      # `npx -p <pacote> <bin>` porque o nome do bin (lyx-coverage-gate) != nome do
+      # pacote; `npx` faz self-fetch público, então roda mesmo em front não-migrado.
       - name: Coverage gate (global)
         id: coverage_gate
         if: always()
