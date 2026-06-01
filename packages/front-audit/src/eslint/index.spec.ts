@@ -25,4 +25,11 @@ describe('@lyxai/front-audit/eslint', () => {
     const ignoreBlock = config.find((c) => Array.isArray(c.ignores) && !c.files);
     expect(ignoreBlock?.ignores).toContain('_lyx-audit/**');
   });
+
+  it('permite require em **/*.cjs (pro .dependency-cruiser.cjs reexportar o preset)', () => {
+    const cjsBlock = config.find(
+      (c) => Array.isArray(c.files) && c.files.includes('**/*.cjs'),
+    );
+    expect(cjsBlock?.rules?.['@typescript-eslint/no-require-imports']).toBe('off');
+  });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@lyxai/front-audit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Config de auditoria compartilhada dos fronts Lyx: ESLint flat config (complexidade + missing-spec), preset dependency-cruiser, exclude de coverage do vitest, e os bins coverage-gate + audit-report.",
   "license": "MIT",

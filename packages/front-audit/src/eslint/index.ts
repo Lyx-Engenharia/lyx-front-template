@@ -59,6 +59,14 @@ const config: Linter.Config[] = [
     files: ['src/components/ui/**', 'src/hooks/use-mobile.ts'],
     rules: { 'react-hooks/purity': 'off', 'react-hooks/set-state-in-effect': 'off' },
   },
+  // Arquivos de config CJS (ex.: `.dependency-cruiser.cjs` reexporta o preset via
+  // `require('@lyxai/front-audit/dependency-cruiser')`). eslint-config-next/typescript
+  // dispara `@typescript-eslint/no-require-imports` aí — mas require é legítimo em .cjs.
+  // Centralizado aqui pra todo consumidor herdar (senão cada front precisa do override).
+  {
+    files: ['**/*.cjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
 ];
 
 export default config;
