@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { dirname, basename, join } from 'node:path';
+import { dirname, basename, join, relative } from 'node:path';
 import type { Rule } from 'eslint';
 
 const rule: Rule.RuleModule = {
@@ -31,7 +31,7 @@ const rule: Rule.RuleModule = {
           context.report({
             node,
             messageId: 'missingSpec',
-            data: { specPath: specPath.replace(`${process.cwd()}/`, '') },
+            data: { specPath: relative(process.cwd(), specPath) },
           });
         }
       },

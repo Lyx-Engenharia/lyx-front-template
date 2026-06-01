@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { renderReport, type AuditInputs } from './report';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { renderReport, loadJsonOrDefault, type AuditInputs } from './report';
 
 const base: AuditInputs = {
   commitSha: 'abc1234',
@@ -39,5 +42,23 @@ describe('renderReport', () => {
   it('mostra ciclos do dependency-cruiser', () => {
     const md = renderReport({ ...base, depcruise: { violations: [{ rule: { name: 'no-circular', severity: 'error' }, from: 'src/a.ts', to: 'src/b.ts', cycle: ['src/a.ts', 'src/b.ts'] }] } });
     expect(md).toContain('no-circular');
+  });
+});
+
+describe('loadJsonOrDefault', () => {
+  it('arquivo ausente → fallback', () => {
+    expect(loadJsonOrDefault('/no/such/file.json', { a: 1 })).toEqual({ a: 1 });
+  });
+  it('JSON válido → parseado', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'front-audit-'));
+    const file = join(dir, 'test.json');
+    writeFileSync(file, JSON.stringify({ a: 2 }), 'utf8');
+    expect(loadJsonOrDefault(file, { a: 0 })).toEqual({ a: 2 });
+  });
+  it('JSON malformado → fallback', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'front-audit-'));
+    const file = join(dir, 'bad.json');
+    writeFileSync(file, '{bad json', 'utf8');
+    expect(loadJsonOrDefault(file, { a: 99 })).toEqual({ a: 99 });
   });
 });

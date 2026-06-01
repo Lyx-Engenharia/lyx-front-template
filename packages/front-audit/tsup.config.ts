@@ -11,6 +11,4 @@ export default defineConfig({
   dts: true,
   clean: true,
   // tsup preserva o shebang `#!/usr/bin/env node` dos entries de bin e marca +x.
-  // eslint-plugin-sonarjs é dependency (resolve em runtime) → não bundlar.
-  external: ['eslint-plugin-sonarjs'],
 });

@@ -14,6 +14,15 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { isEntryPoint } from './is-entry';
 
+export function loadJsonOrDefault<T>(path: string, fallback: T): T {
+  if (!existsSync(path)) return fallback;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 type EslintMsg = {
   ruleId: string | null;
   severity: number;
@@ -200,15 +209,6 @@ export function renderReport(input: AuditInputs): string {
   return lines.join('\n');
 }
 
-function loadJsonOrDefault<T>(path: string, fallback: T): T {
-  if (!existsSync(path)) return fallback;
-  try {
-    return JSON.parse(readFileSync(path, 'utf8')) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 /* v8 ignore start */
 function main() {
   const commitSha = (process.env.GITHUB_SHA ?? 'local').slice(0, 7);
@@ -235,7 +235,7 @@ function main() {
       linesPct: 0,
       branchesPct: 0,
     },
-    thresholds: { linesMin: 50, branchesMin: 40 },
+    thresholds: { linesMin: 75, branchesMin: 40 }, // default alinhado com coverage-gate (AUDIT_LINES_MIN=75)
     gate: { passed: true, violations: [] },
     mode: 'warn',
   });
