@@ -1,0 +1,40 @@
+name: Publish @lyxai/front-audit
+
+# Publica @lyxai/front-audit no npm público quando uma tag `front-audit-v*` é pushada.
+#
+# Auth = OIDC trusted publishing (SEM token de longa duração). Pré-requisito (1x, manual):
+#   npmjs.com → @lyxai/front-audit → Settings → Trusted Publishing → adicionar:
+#     org/user: Lyx-Engenharia · repo: lyx-front-template · workflow: publish-front-audit.yml
+# (a 1ª publicação — 0.1.0 — foi feita com token efêmero; daqui pra frente é OIDC.)
+#
+# Releasear nova versão:
+#   npm version patch -w @lyxai/front-audit --no-git-tag-version   # bump
+#   git commit -am "chore(front-audit): vX.Y.Z" && git push
+#   git tag front-audit-vX.Y.Z && git push origin front-audit-vX.Y.Z
+
+on:
+  push:
+    tags:
+      - 'front-audit-v*'
+
+permissions:
+  contents: read
+  id-token: write          # OBRIGATÓRIO: runner minta o token OIDC pro trusted publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'   # OIDC exige npm >=11.5.1; node 22 (>=22.14) é o baseline.
+          # SEM registry-url: ele escreve um .npmrc com _authToken vazio que sombreia o OIDC.
+      - name: Atualizar npm (OIDC precisa de >=11.5.1; node traz npm 10)
+        run: npm install -g npm@latest
+      - run: npm --version   # gate: deve ser >= 11.5.1
+      - run: npm install
+      - run: npm run build -w @lyxai/front-audit
+      - name: Publish (OIDC trusted publishing, sem token)
+        run: npm publish -w @lyxai/front-audit --provenance --access public
+        # --provenance: requer id-token:write (ok) + repo público (ok). Sem NODE_AUTH_TOKEN.
