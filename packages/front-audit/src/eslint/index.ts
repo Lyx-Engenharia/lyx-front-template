@@ -15,6 +15,7 @@ const config: Linter.Config[] = [
     '.next/**',
     'out/**',
     'build/**',
+    'dist/**',
     'next-env.d.ts',
     'coverage/**',
     'audit/**',
@@ -23,10 +24,18 @@ const config: Linter.Config[] = [
     // inteiro em `_lyx-audit/` durante o CI; o `eslint` da raiz não deve lintar
     // esse código vendorizado. REMOVER na Fase 3 (contract), quando o clone sumir.
     '_lyx-audit/**',
+    // Como as regras agora alvejam `**/*.{ts,tsx}` (layout-agnostic — gateia tanto
+    // `src/`-fronts quanto app-router-na-raiz), precisamos excluir explicitamente
+    // o que NÃO é código-fonte de produto: scripts, e2e, configs e declarations.
+    // Sem isso, fronts com `src/` veriam dívida falsa surgir de scripts/configs.
+    'scripts/**',
+    'e2e/**',
+    '**/*.config.{ts,js,cjs,mjs}',
+    '**/*.d.ts',
   ]),
   // Regras de auditoria — severidade error (bloqueia merge).
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx}'],
     rules: {
       complexity: ['error', 12],
       'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
@@ -34,19 +43,19 @@ const config: Linter.Config[] = [
     },
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx}'],
     plugins: { sonarjs },
     rules: { 'sonarjs/cognitive-complexity': ['error', 15] },
   },
   // Regra custom Lyx: missing-spec.
   {
-    files: ['src/**/*.{service,controller}.ts'],
+    files: ['**/*.{service,controller}.ts'],
     plugins: { lyx: { meta: { name: 'eslint-plugin-lyx' }, rules: { 'missing-spec': missingSpec } } },
     rules: { 'lyx/missing-spec': 'error' },
   },
   // Specs/fixtures/shadcn podem ser longos / gerados.
   {
-    files: ['**/*.{test,spec}.{ts,tsx}', '**/__fixtures__/**', 'src/components/ui/**'],
+    files: ['**/*.{test,spec}.{ts,tsx}', '**/__fixtures__/**', '**/components/ui/**'],
     rules: {
       complexity: 'off',
       'max-lines': 'off',
@@ -56,7 +65,7 @@ const config: Linter.Config[] = [
   },
   // shadcn gerado por CLI — desliga as 2 regras built-in do Next que disparam.
   {
-    files: ['src/components/ui/**', 'src/hooks/use-mobile.ts'],
+    files: ['**/components/ui/**', '**/hooks/use-mobile.ts'],
     rules: { 'react-hooks/purity': 'off', 'react-hooks/set-state-in-effect': 'off' },
   },
   // Arquivos de config CJS (ex.: `.dependency-cruiser.cjs` reexporta o preset via
