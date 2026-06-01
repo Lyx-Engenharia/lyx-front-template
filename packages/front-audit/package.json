@@ -1,0 +1,46 @@
+{
+  "name": "@lyxai/front-audit",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Config de auditoria compartilhada dos fronts Lyx: ESLint flat config (complexidade + missing-spec), preset dependency-cruiser, exclude de coverage do vitest, e os bins coverage-gate + audit-report.",
+  "license": "MIT",
+  "author": "João Vitor Dadas (https://github.com/joaodadas)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lyx-Engenharia/lyx-front-template.git",
+    "directory": "packages/front-audit"
+  },
+  "keywords": ["eslint-config", "lyx", "audit", "coverage-gate"],
+  "exports": {
+    "./eslint": { "types": "./dist/eslint/index.d.ts", "default": "./dist/eslint/index.js" },
+    "./vitest-coverage": { "types": "./dist/vitest-coverage.d.ts", "default": "./dist/vitest-coverage.js" },
+    "./dependency-cruiser": "./dependency-cruiser.cjs"
+  },
+  "bin": {
+    "lyx-coverage-gate": "dist/bin/coverage-gate.js",
+    "lyx-audit-report": "dist/bin/report.js"
+  },
+  "files": ["dist", "dependency-cruiser.cjs"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "eslint-plugin-sonarjs": "^4.0.3"
+  },
+  "peerDependencies": {
+    "eslint": ">=9"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@vitest/coverage-v8": "^4.1.6",
+    "eslint": "^9",
+    "tsup": "^8.3.0",
+    "typescript": "^5",
+    "vitest": "^4.1.6"
+  },
+  "publishConfig": { "access": "public" },
+  "engines": { "node": ">=20.18" }
+}
