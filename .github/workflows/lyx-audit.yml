@@ -108,12 +108,15 @@ jobs:
         run: npm run test:coverage
         continue-on-error: true
 
-      # 8. Coverage gate (script do TEMPLATE)
-      # Roda mesmo se tests falhou (talvez gerou lcov parcial)
+      # 8. Coverage gate — bin do pacote @lyxai/front-audit (fallback: script clonado).
+      # EXPAND-CONTRACT (Fase 1): prefere o bin publicado. Precisa de `-p <pacote>`
+      # porque o nome do bin (lyx-coverage-gate) != nome do pacote (@lyxai/front-audit);
+      # `npx` faz self-fetch público, então funciona mesmo em front ainda não migrado.
+      # Cai pro script clonado de _lyx-audit/ se o bin falhar. Clone+fallback saem na Fase 3.
       - name: Coverage gate (global)
         id: coverage_gate
         if: always()
-        run: npx tsx _lyx-audit/scripts/audit/coverage-gate.ts
+        run: npx -y -p @lyxai/front-audit@^0 lyx-coverage-gate || npx tsx _lyx-audit/scripts/audit/coverage-gate.ts
         continue-on-error: true
 
       # 9. Dependency check (opcional)
@@ -138,10 +141,10 @@ jobs:
         run: npx depcruise src --config .dependency-cruiser.cjs --output-type=json --output-to=audit/depcruise.json
         continue-on-error: true
 
-      # 11. Gerar markdown report (sempre)
+      # 11. Gerar markdown report (sempre) — bin do pacote, fallback pro script clonado.
       - name: Gerar markdown report
         if: always()
-        run: npx tsx _lyx-audit/scripts/audit/report.ts > audit/report.md
+        run: npx -y -p @lyxai/front-audit@^0 lyx-audit-report > audit/report.md || npx tsx _lyx-audit/scripts/audit/report.ts > audit/report.md
         env:
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
         continue-on-error: true
