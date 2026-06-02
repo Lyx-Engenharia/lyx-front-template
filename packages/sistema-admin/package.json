@@ -1,0 +1,45 @@
+{
+  "name": "@lyxai/sistema-admin",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Painel Admin de Sistema + perfil/troca de senha reusável pelos fronts Lyx. Consome /admin/sistemas/:slug/*, /me/profile e /sistemas/catalog do monolito. Ver lyx-monolith ADR-0006.",
+  "license": "MIT",
+  "author": "João Vitor Dadas (https://github.com/joaodadas)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lyx-Engenharia/lyx-front-template.git",
+    "directory": "packages/sistema-admin"
+  },
+  "keywords": ["lyx", "rbac", "admin-de-sistema", "react"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.6",
+    "jsdom": "^25.0.1",
+    "react": "^19",
+    "react-dom": "^19",
+    "tsup": "^8.3.0",
+    "typescript": "^5",
+    "vitest": "^4.1.6"
+  },
+  "publishConfig": { "access": "public" },
+  "engines": { "node": ">=20.18" }
+}
