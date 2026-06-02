@@ -26,7 +26,10 @@ describe("ChangePasswordCard", () => {
     fill("Confirmar nova senha", "novaSenha123");
     submit();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
     expect(url).toContain("/api/auth/change-password");
     expect(JSON.parse(String(init.body))).toEqual({
       currentPassword: "atual123",

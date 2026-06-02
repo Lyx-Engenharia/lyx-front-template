@@ -1,6 +1,6 @@
 {
   "name": "@lyxai/sistema-admin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Painel Admin de Sistema + perfil/troca de senha reusável pelos fronts Lyx. Consome /admin/sistemas/:slug/*, /me/profile e /sistemas/catalog do monolito. Ver lyx-monolith ADR-0006.",
   "license": "MIT",

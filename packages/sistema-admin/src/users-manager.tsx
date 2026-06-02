@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ApiError, apiFetch } from "./client";
+import { ApiError, apiFetch, resetUserPassword, softDeleteUser } from "./client";
 import { useApiData } from "./use-data";
 import type { RoleInfo, SistemaCatalogEntry, SistemaUser } from "./types";
 import { assignableRoles, roleLabelOf } from "./role-label";
@@ -64,6 +64,7 @@ export function SistemaUsersManager({
         slug={slug}
         sistema={sistema}
         roles={roles}
+        accent={accent}
       />
     </div>
   );
@@ -75,12 +76,14 @@ function UsersList({
   slug,
   sistema,
   roles,
+  accent,
 }: {
   state: ReturnType<typeof useApiData<SistemaUser[]>>;
   apiUrl: string;
   slug: string;
   sistema: SistemaCatalogEntry;
   roles: RoleInfo[];
+  accent: string;
 }) {
   if (state.loading) return <p style={mutedStyle()}>Carregando...</p>;
   if (state.error)
@@ -98,6 +101,7 @@ function UsersList({
           user={u}
           sistema={sistema}
           roles={roles}
+          accent={accent}
           onChanged={state.reload}
         />
       ))}
@@ -111,6 +115,7 @@ function UserRow({
   user,
   sistema,
   roles,
+  accent,
   onChanged,
 }: {
   apiUrl: string;
@@ -118,11 +123,13 @@ function UserRow({
   user: SistemaUser;
   sistema: SistemaCatalogEntry;
   roles: RoleInfo[];
+  accent: string;
   onChanged: () => void;
 }) {
   const role = user.memberships[0]?.role ?? "";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -152,38 +159,167 @@ function UserRow({
       }),
     );
 
+  const deactivate = () => {
+    const ok = window.confirm(
+      `Desativar a conta de ${user.name}? A pessoa perde o acesso ao login e some desta lista. Pode ser revertido depois.`,
+    );
+    if (ok) run(() => softDeleteUser(apiUrl, slug, user.userId));
+  };
+
   const roleInAssignable = roles.some((r) => r.name === role);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: 14, borderTop: "1px solid #f1f5f9" }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{user.name}</div>
-        <div style={mutedStyle()}>{user.email}</div>
-        {error && <div style={{ fontSize: 12, color: "#dc2626" }}>{error}</div>}
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14, borderTop: "1px solid #f1f5f9" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{user.name}</div>
+          <div style={mutedStyle()}>{user.email}</div>
+          {error && <div style={{ fontSize: 12, color: "#dc2626" }}>{error}</div>}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <select
+            aria-label={`Cargo de ${user.name}`}
+            value={role}
+            disabled={busy}
+            onChange={(e) => changeRole(e.target.value)}
+            style={{ ...inputStyle(), width: "auto" }}
+          >
+            {!roleInAssignable && (
+              <option value={role}>{roleLabelOf(sistema, role)} (admin)</option>
+            )}
+            {roles.map((r) => (
+              <option key={r.name} value={r.name}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setResetting(true)}
+            disabled={busy}
+            style={ghostButtonStyle()}
+          >
+            Resetar senha
+          </button>
+          <button
+            onClick={deactivate}
+            disabled={busy}
+            style={{ ...ghostButtonStyle(), color: "#dc2626", borderColor: "#fca5a5" }}
+          >
+            Desativar usuário
+          </button>
+          <button
+            onClick={remove}
+            disabled={busy}
+            style={ghostButtonStyle()}
+            title="Tira o usuário deste sistema sem desativar a conta"
+          >
+            Remover do sistema
+          </button>
+        </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <select
-          aria-label={`Cargo de ${user.name}`}
-          value={role}
-          disabled={busy}
-          onChange={(e) => changeRole(e.target.value)}
-          style={{ ...inputStyle(), width: "auto" }}
-        >
-          {!roleInAssignable && (
-            <option value={role}>{roleLabelOf(sistema, role)} (admin)</option>
-          )}
-          {roles.map((r) => (
-            <option key={r.name} value={r.name}>
-              {r.label}
-            </option>
-          ))}
-        </select>
-        <button onClick={remove} disabled={busy} style={ghostButtonStyle()}>
-          Remover
-        </button>
-      </div>
+      {resetting && (
+        <ResetPasswordModal
+          apiUrl={apiUrl}
+          slug={slug}
+          user={user}
+          accent={accent}
+          onClose={() => setResetting(false)}
+        />
+      )}
     </div>
   );
+}
+
+function ResetPasswordModal({
+  apiUrl,
+  slug,
+  user,
+  accent,
+  onClose,
+}: {
+  apiUrl: string;
+  slug: string;
+  user: SistemaUser;
+  accent: string;
+  onClose: () => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password.length < 8) {
+      setError("A nova senha precisa de ao menos 8 caracteres.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await resetUserPassword(apiUrl, slug, user.userId, password);
+      setDone(true);
+      setPassword("");
+    } catch (err) {
+      setError(resetErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <div style={{ ...cardStyle(), gap: 10 }}>
+        <p role="status" style={{ fontSize: 13, color: accent, margin: 0 }}>
+          Senha de {user.name} redefinida.
+        </p>
+        <button onClick={onClose} style={ghostButtonStyle()}>
+          Fechar
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} style={{ ...cardStyle(), gap: 10 }}>
+      <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>
+        Resetar senha de {user.name}
+      </h4>
+      <p style={{ ...mutedStyle(), margin: 0 }}>
+        Define uma nova senha sem pedir a atual. Repasse para a pessoa por um
+        canal seguro.
+      </p>
+      <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <span style={labelStyle()}>Nova senha (min 8)</span>
+        <input
+          type="password"
+          value={password}
+          autoComplete="new-password"
+          onChange={(e) => setPassword(e.target.value)}
+          style={inputStyle()}
+        />
+      </label>
+      {error && <p role="alert" style={{ fontSize: 13, color: "#dc2626", margin: 0 }}>{error}</p>}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button type="submit" disabled={busy} style={primaryButtonStyle(!busy, accent)}>
+          {busy ? "Salvando..." : "Redefinir senha"}
+        </button>
+        <button type="button" onClick={onClose} style={ghostButtonStyle()}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function resetErrorMessage(err: unknown): string {
+  if (err instanceof ApiError && err.status === 403) {
+    return "Não é possível resetar a senha de um Super Admin por aqui.";
+  }
+  if (err instanceof ApiError && err.status === 404) {
+    return "Este usuário não é membro do sistema.";
+  }
+  return err instanceof Error ? err.message : "Erro ao resetar a senha.";
 }
 
 function CreateUserForm({
