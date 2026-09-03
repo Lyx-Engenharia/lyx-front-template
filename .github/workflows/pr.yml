@@ -30,13 +30,12 @@ jobs:
       - run: npm run typecheck
       - name: Run tests with coverage
         run: npm run test:coverage
-      - name: Coverage gate global (Fase 1 — warn)
+      - name: Coverage gate global (régua fixa org-wide, error)
         run: npm run coverage:gate
-        continue-on-error: true
         env:
-          AUDIT_LINES_MIN: '50'
+          AUDIT_LINES_MIN: '75'
           AUDIT_BRANCHES_MIN: '40'
-          AUDIT_GATE_MODE: 'warn'
+          AUDIT_GATE_MODE: 'error'
       - name: Dependency check (ciclos — error)
         run: npm run deps:check
       - name: Upload coverage
