@@ -42,7 +42,7 @@ jobs:
         run: npm run coverage:gate
         continue-on-error: true
         env:
-          AUDIT_LINES_MIN: '50'
+          AUDIT_LINES_MIN: '75'
           AUDIT_BRANCHES_MIN: '40'
           AUDIT_GATE_MODE: 'warn'
       - name: Gerar relatório markdown
