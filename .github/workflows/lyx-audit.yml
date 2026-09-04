@@ -98,9 +98,15 @@ jobs:
         run: npm run typecheck
         continue-on-error: true
 
-      # 7. Tests + coverage
+      # 7. Tests + coverage — o step mais caro do pipeline (medido: 586s de 745s
+      # em revendas). Não roda se o typecheck já quebrou: com tipo errado a
+      # suíte não diz nada novo, e antes disso um PR com erro de tipo no
+      # segundo 25 pagava a suíte inteira mesmo assim (runs de failure duravam
+      # o mesmo que os verdes). O dev continua recebendo lint+typecheck no
+      # comment; a linha de teste sai como "não rodou".
       - name: Tests + coverage
         id: tests
+        if: ${{ steps.typecheck.outcome == 'success' }}
         run: npm run test:coverage
         continue-on-error: true
 
@@ -109,7 +115,7 @@ jobs:
       # pacote; `npx` faz self-fetch público, então roda mesmo em front não-migrado.
       - name: Coverage gate (global)
         id: coverage_gate
-        if: always()
+        if: ${{ always() && steps.tests.outcome != 'skipped' }}
         run: npx -y -p @lyxai/front-audit@^0 lyx-coverage-gate
         continue-on-error: true
 
@@ -125,13 +131,16 @@ jobs:
         if: always()
         run: mkdir -p audit
 
+      # Segunda passada do ESLint (~45s medidos) só quando a primeira achou algo:
+      # com lint verde o JSON sairia vazio e ninguém o lê. Como a maioria dos
+      # runs é verde, isto sozinho devolve ~45s por run em 22 repos.
       - name: ESLint JSON
-        if: always()
+        if: ${{ always() && steps.lint.outcome == 'failure' }}
         run: npx eslint . --format=json --output-file=audit/eslint.json
         continue-on-error: true
 
       - name: dependency-cruiser JSON
-        if: ${{ always() && !inputs.skip-deps-check }}
+        if: ${{ always() && !inputs.skip-deps-check && steps.deps_check.outcome == 'failure' }}
         run: npx depcruise src --config .dependency-cruiser.cjs --output-type=json --output-to=audit/depcruise.json
         continue-on-error: true
 
@@ -172,13 +181,17 @@ jobs:
         continue-on-error: true
 
       # 13. Upload coverage como artifact (debug)
+      # Só o lcov: o HTML do report pesa dezenas de MB, sobe em toda run dos 22
+      # repos e ninguém o abre por aqui (o coverage gate já diz o que falta).
+      # É a linha "Actions storage" da fatura. Retenção 2 dias: é insumo de
+      # debug do dia, não histórico.
       - name: Upload coverage
-        if: always()
+        if: ${{ always() && steps.tests.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-pr-${{ github.event.pull_request.number }}
-          path: coverage/
-          retention-days: 7
+          path: coverage/lcov.info
+          retention-days: 2
 
       # 14. Fail job se algum check CRÍTICO falhou
       # Avalia outcomes de cada check e exit 1 com sumário claro.
@@ -197,7 +210,11 @@ jobs:
           echo "=== Resultados ==="
           echo "Lint:           $LINT"
           echo "Typecheck:      $TYPECHECK"
-          echo "Tests+coverage: $TESTS"
+          if [ "$TESTS" = "skipped" ]; then
+            echo "Tests+coverage: NÃO RODOU (typecheck quebrado — corrija o tipo e a suíte roda)"
+          else
+            echo "Tests+coverage: $TESTS"
+          fi
           echo "Coverage gate:  $COVERAGE"
           echo "Deps check:     $DEPS"
           echo "Gate mode:      $GATE_MODE"
