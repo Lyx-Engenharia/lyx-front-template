@@ -27,6 +27,7 @@ jobs:
     # Específico do TEMPLATE (não vai pros outros repos). Garante que AGENTS.md
     # foi propagado pros mirrors via `npm run sync-agents`.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
