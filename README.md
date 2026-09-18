@@ -24,7 +24,7 @@ npm install
 
 # 3. Env
 cp .env.example .env.local
-# edita NEXT_PUBLIC_API_URL + NEXT_PUBLIC_ORG_ID_ENTREGAS
+# edita NEXT_PUBLIC_API_URL + NEXT_PUBLIC_ORG_SLUG
 
 # 4. Dev
 npm run dev
@@ -120,7 +120,7 @@ Consumo via `NEXT_PUBLIC_API_URL`:
 - Domínio: `/<modulo>/*` (ex: `/entregas`, `/sistemas`, `/setores`)
 - Cookie cross-subdomain via `credentials: 'include'`
 
-Org ativa setada no login via `authClient.organization.setActive({ organizationId })`.
+Org ativa setada no login via `authClient.organization.setActive({ organizationSlug: ORG_SLUG })` (`ativarOrgDoSistema()` em `lib/auth-client.ts`), com o slug vindo de `NEXT_PUBLIC_ORG_SLUG`.
 
 ## Build & Deploy
 

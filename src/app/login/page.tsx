@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
+import { ativarOrgDoSistema, authClient } from "@/lib/auth-client";
 
 // ─── Personalizar aqui ─────────────────────────────────────────
 const BRAND = {
@@ -13,7 +13,6 @@ const BRAND = {
   tagline: "Sub-título do sistema",
   hero: "Hub de sistemas inteligentes",
 };
-const ORG_ID = process.env.NEXT_PUBLIC_ORG_ID;
 // ───────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
@@ -36,15 +35,11 @@ export default function LoginPage() {
       return;
     }
 
-    if (ORG_ID) {
-      const { error: orgError } = await authClient.organization.setActive({
-        organizationId: ORG_ID,
-      });
-      if (orgError) {
-        setError(`Login OK mas erro ao ativar org: ${orgError.message}`);
-        setLoading(false);
-        return;
-      }
+    const { error: orgError } = await ativarOrgDoSistema();
+    if (orgError) {
+      setError(`Login OK mas erro ao ativar org: ${orgError.message}`);
+      setLoading(false);
+      return;
     }
 
     router.push("/dashboard");
