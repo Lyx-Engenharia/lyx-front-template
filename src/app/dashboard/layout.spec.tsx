@@ -132,5 +132,18 @@ describe("dashboard/layout", () => {
         expect(html).not.toContain("conteudo-da-pagina");
       });
     });
+
+    describe("org ativa", () => {
+      it("chegando do Hub com a org de lá: carregando até a primeira ativação", () => {
+        useSessionDevolve({ data: sessaoDe("u1", "org-hub") as RetornoDoUseSession["data"] });
+
+        const html = renderizar((cliente) =>
+          cliente.setQueryData(chaveDoPerfil("u1"), perfilCom("u1", [ORG_SLUG])),
+        );
+
+        expect(html).toContain("Carregando...");
+        expect(html).not.toContain("conteudo-da-pagina");
+      });
+    });
   });
 });

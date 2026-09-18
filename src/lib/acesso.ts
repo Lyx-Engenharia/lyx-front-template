@@ -114,6 +114,31 @@ export function estadoDoAcesso(entrada: EntradaDoAcesso): EstadoDoAcesso {
 }
 
 /**
+ * Conta que já passou pelo gate neste sistema, ou `null`. "liberado" grava a
+ * conta; "carregando" e "ativando-org" (outra aba trocou a org ativa) mantêm;
+ * bloqueio e falta de sessão apagam.
+ */
+export function contaLiberada(
+  anterior: string | null,
+  estado: EstadoDoAcesso,
+  userId: string | undefined,
+): string | null {
+  if (estado === "liberado") return userId ?? null;
+  if (estado === "carregando" || estado === "ativando-org") return anterior;
+  return null;
+}
+
+/**
+ * Se o sistema, com a página aberta, fica montado. Só a primeira ativação da
+ * org mostra "Carregando". Quando a conta já estava liberada e outra aba troca
+ * a org ativa, o refetch no foco cai em "ativando-org" e a org é reativada em
+ * segundo plano, sem desmontar a página (e o formulário que estiver nela).
+ */
+export function mostraSistema(estado: EstadoDoAcesso, jaLiberado: boolean): boolean {
+  return estado === "liberado" || (estado === "ativando-org" && jaLiberado);
+}
+
+/**
  * Login é do Hub: este front não tem tela de login, a sessão vem pelo cookie
  * `.lyxai.com.br` (SSO). Depois do login o Hub devolve a pessoa pra
  * `urlAtual`, desde que a origin dela esteja na allowlist do Hub

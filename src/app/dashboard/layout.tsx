@@ -18,8 +18,10 @@ import { BRAND } from "@/config/brand";
 import {
   buscarPerfil,
   chaveDoPerfil,
+  contaLiberada,
   estadoDoAcesso,
   membershipDoSistema,
+  mostraSistema,
   sessaoFalhou,
   urlDeLoginDoHub,
 } from "@/lib/acesso";
@@ -78,6 +80,13 @@ function useAcessoAoSistema() {
     ativacaoComErro,
   });
 
+  // Lembra quem já passou pelo gate (atualizar estado no render é o padrão do
+  // React pra guardar algo do render anterior, sem render extra de efeito).
+  const [liberadaPara, setLiberadaPara] = useState<string | null>(null);
+  const liberadaAgora = contaLiberada(liberadaPara, estado, userId);
+  if (liberadaAgora !== liberadaPara) setLiberadaPara(liberadaAgora);
+  const sistemaMontado = mostraSistema(estado, !!userId && liberadaAgora === userId);
+
   useEffect(() => {
     if (estado === "sem-sessao") {
       window.location.replace(urlDeLoginDoHub(HUB_URL, window.location.href));
@@ -86,7 +95,8 @@ function useAcessoAoSistema() {
 
   // Só roda com membership confirmada: setActive numa org de que a pessoa não
   // é membro zera a org ativa da sessão, que é compartilhada com o Hub. O
-  // Better Auth recarrega a sessão sozinho depois do set-active.
+  // Better Auth recarrega a sessão sozinho depois do set-active. Se a conta já
+  // estava liberada, isto roda em segundo plano com a página montada.
   useEffect(() => {
     if (estado !== "ativando-org") return;
     let cancelado = false;
@@ -105,16 +115,16 @@ function useAcessoAoSistema() {
     if (userId) void perfil.refetch();
   }
 
-  return { estado, session, tentarDeNovo };
+  return { estado, session, sistemaMontado, tentarDeNovo };
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { estado, session, tentarDeNovo } = useAcessoAoSistema();
+  const { estado, session, sistemaMontado, tentarDeNovo } = useAcessoAoSistema();
 
   if (estado === "sem-acesso" || estado === "erro") {
     return <SemAcesso motivo={estado} hubUrl={HUB_URL} onTentarDeNovo={tentarDeNovo} />;
   }
-  if (estado !== "liberado" || !session) {
+  if (!sistemaMontado || !session) {
     return (
       <div className="app-shell" style={{ alignItems: "center", justifyContent: "center" }}>
         <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Carregando...</span>

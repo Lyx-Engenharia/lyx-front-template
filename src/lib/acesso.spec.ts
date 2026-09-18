@@ -2,11 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   buscarPerfil,
   chaveDoPerfil,
+  contaLiberada,
   estadoDoAcesso,
   membershipDoSistema,
+  mostraSistema,
   sessaoFalhou,
   urlDeLoginDoHub,
   type EntradaDoAcesso,
+  type EstadoDoAcesso,
   type Membership,
   type Perfil,
 } from "./acesso";
@@ -157,6 +160,93 @@ describe("acesso", () => {
       expect(estadoDoAcesso({ ...liberada, membership: null, orgAtivaId: "org-hub" })).toBe(
         "sem-acesso",
       );
+    });
+  });
+
+  describe("contaLiberada", () => {
+    it("liberado grava a conta", () => {
+      expect(contaLiberada(null, "liberado", "u1")).toBe("u1");
+    });
+
+    it("ativando-org e carregando mantêm a conta já liberada", () => {
+      expect(contaLiberada("u1", "ativando-org", "u1")).toBe("u1");
+      expect(contaLiberada("u1", "carregando", "u1")).toBe("u1");
+    });
+
+    it("bloqueio ou falta de sessão apagam a conta liberada", () => {
+      expect(contaLiberada("u1", "erro", "u1")).toBeNull();
+      expect(contaLiberada("u1", "sem-acesso", "u1")).toBeNull();
+      expect(contaLiberada("u1", "sem-sessao", undefined)).toBeNull();
+    });
+  });
+
+  describe("mostraSistema", () => {
+    it("liberado monta o sistema", () => {
+      expect(mostraSistema("liberado", false)).toBe(true);
+    });
+
+    it("primeira ativação da org não monta: mostra carregando", () => {
+      expect(mostraSistema("ativando-org", false)).toBe(false);
+    });
+
+    it("reativação com a conta já liberada mantém o sistema montado", () => {
+      expect(mostraSistema("ativando-org", true)).toBe(true);
+    });
+
+    it("carregando, erro e sem-acesso não montam, mesmo já liberado", () => {
+      expect(mostraSistema("carregando", true)).toBe(false);
+      expect(mostraSistema("erro", true)).toBe(false);
+      expect(mostraSistema("sem-acesso", true)).toBe(false);
+    });
+
+    // O que o gate do layout faz a cada render: guarda a conta liberada e decide.
+    function montadoARender(passos: [EstadoDoAcesso, string][]): boolean[] {
+      let liberada: string | null = null;
+      return passos.map(([estado, userId]) => {
+        liberada = contaLiberada(liberada, estado, userId);
+        return mostraSistema(estado, liberada === userId);
+      });
+    }
+
+    it("outra aba troca a org: a página não desmonta enquanto a org é reativada", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["ativando-org", "u1"],
+          ["liberado", "u1"],
+        ]),
+      ).toEqual([true, true, true]);
+    });
+
+    it("chegando do Hub: carregando até a primeira ativação terminar", () => {
+      expect(
+        montadoARender([
+          ["carregando", "u1"],
+          ["ativando-org", "u1"],
+          ["liberado", "u1"],
+        ]),
+      ).toEqual([false, false, true]);
+    });
+
+    it("outra conta entra em outra aba: não herda a liberação da anterior", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["carregando", "u2"],
+          ["ativando-org", "u2"],
+        ]),
+      ).toEqual([true, false, false]);
+    });
+
+    it("reativação que falhou e tentar de novo: volta a ser primeira ativação", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["ativando-org", "u1"],
+          ["erro", "u1"],
+          ["ativando-org", "u1"],
+        ]),
+      ).toEqual([true, true, false, false]);
     });
   });
 
