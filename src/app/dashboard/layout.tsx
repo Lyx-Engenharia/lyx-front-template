@@ -22,6 +22,7 @@ import {
   estadoDoAcesso,
   membershipDoSistema,
   mostraSistema,
+  sessaoDoSistema,
   sessaoFalhou,
   urlDeLoginDoHub,
 } from "@/lib/acesso";
@@ -56,7 +57,8 @@ type Sessao = NonNullable<ReturnType<typeof useSession>["data"]>;
  *
  * Login é do Hub (SSO pelo cookie `.lyxai.com.br`): sem sessão, vai pro login
  * do Hub com a URL atual em `?redirect=`. Falha do `get-session` que não é
- * 401 não é falta de sessão: vira tela de erro com "Tentar de novo". Como a
+ * 401 não é falta de sessão: vira tela de erro com "Tentar de novo", ou, com a
+ * página já liberada, a página segue montada até a sessão voltar. Como a
  * pessoa chega com a org ativa do Hub, o gate ativa a org deste sistema antes
  * de liberar.
  */
@@ -80,12 +82,18 @@ function useAcessoAoSistema() {
     ativacaoComErro,
   });
 
-  // Lembra quem já passou pelo gate (atualizar estado no render é o padrão do
-  // React pra guardar algo do render anterior, sem render extra de efeito).
+  // Lembra quem já passou pelo gate e a última sessão vista (atualizar estado
+  // no render é o padrão do React pra guardar algo do render anterior, sem
+  // render extra de efeito). A sessão lembrada desenha a página quando o
+  // refresh da sessão a apaga (ver `mostraSistema`).
   const [liberadaPara, setLiberadaPara] = useState<string | null>(null);
   const liberadaAgora = contaLiberada(liberadaPara, estado, userId);
   if (liberadaAgora !== liberadaPara) setLiberadaPara(liberadaAgora);
-  const sistemaMontado = mostraSistema(estado, !!userId && liberadaAgora === userId);
+  const [ultimaSessao, setUltimaSessao] = useState<Sessao | null>(null);
+  if (session && session !== ultimaSessao) setUltimaSessao(session);
+  const sessaoMontada = mostraSistema(estado, liberadaAgora, userId)
+    ? sessaoDoSistema(session, ultimaSessao, liberadaAgora)
+    : null;
 
   useEffect(() => {
     if (estado === "sem-sessao") {
@@ -115,23 +123,24 @@ function useAcessoAoSistema() {
     if (userId) void perfil.refetch();
   }
 
-  return { estado, session, sistemaMontado, tentarDeNovo };
+  return { estado, sessaoMontada, tentarDeNovo };
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { estado, session, sistemaMontado, tentarDeNovo } = useAcessoAoSistema();
+  const { estado, sessaoMontada, tentarDeNovo } = useAcessoAoSistema();
 
+  // Antes do "erro": falha do refresh da sessão com a página liberada não a desmonta.
+  if (sessaoMontada) {
+    return <DashboardShell session={sessaoMontada}>{children}</DashboardShell>;
+  }
   if (estado === "sem-acesso" || estado === "erro") {
     return <SemAcesso motivo={estado} hubUrl={HUB_URL} onTentarDeNovo={tentarDeNovo} />;
   }
-  if (!sistemaMontado || !session) {
-    return (
-      <div className="app-shell" style={{ alignItems: "center", justifyContent: "center" }}>
-        <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Carregando...</span>
-      </div>
-    );
-  }
-  return <DashboardShell session={session}>{children}</DashboardShell>;
+  return (
+    <div className="app-shell" style={{ alignItems: "center", justifyContent: "center" }}>
+      <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Carregando...</span>
+    </div>
+  );
 }
 
 function DashboardShell({ session, children }: { session: Sessao; children: React.ReactNode }) {

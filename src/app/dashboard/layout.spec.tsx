@@ -25,15 +25,19 @@ function sessaoDe(userId: string, orgAtiva: string | null = ORG_DO_SISTEMA) {
   };
 }
 
-function useSessionDevolve(parcial: Partial<RetornoDoUseSession>) {
-  vi.mocked(useSession).mockReturnValue({
+function retornoDoUseSession(parcial: Partial<RetornoDoUseSession>): RetornoDoUseSession {
+  return {
     data: null,
     isPending: false,
     isRefetching: false,
     error: null,
     refetch: vi.fn(),
     ...parcial,
-  } as RetornoDoUseSession);
+  } as RetornoDoUseSession;
+}
+
+function useSessionDevolve(parcial: Partial<RetornoDoUseSession>) {
+  vi.mocked(useSession).mockReturnValue(retornoDoUseSession(parcial));
 }
 
 function perfilCom(userId: string, slugs: string[]): Perfil {
@@ -58,6 +62,23 @@ function renderizar(prepararCache?: (cliente: QueryClient) => void) {
         <p>conteudo-da-pagina</p>
       </DashboardLayout>
     </QueryClientProvider>,
+  );
+}
+
+/**
+ * Página já liberada pra u1 e, nos renders seguintes, a sessão como o refresh
+ * a deixou. O gate grava a conta liberada durante o render e o React renderiza
+ * de novo na hora, relendo o `useSession`: o primeiro render vê u1 liberada, os
+ * seguintes veem `depois`.
+ */
+function renderizarLiberadaEDepois(depois: Partial<RetornoDoUseSession>) {
+  vi.mocked(useSession)
+    .mockReturnValue(retornoDoUseSession(depois))
+    .mockReturnValueOnce(
+      retornoDoUseSession({ data: sessaoDe("u1") as RetornoDoUseSession["data"] }),
+    );
+  return renderizar((cliente) =>
+    cliente.setQueryData(chaveDoPerfil("u1"), perfilCom("u1", [ORG_SLUG])),
   );
 }
 
@@ -107,6 +128,50 @@ describe("dashboard/layout", () => {
         );
 
         expect(html).toContain("conteudo-da-pagina");
+      });
+    });
+
+    describe("refresh da sessão com a página liberada", () => {
+      it("get-session do refresh com 5xx apaga a sessão: a página segue montada", () => {
+        const html = renderizarLiberadaEDepois({
+          error: { status: 503 } as RetornoDoUseSession["error"],
+        });
+
+        expect(html).toContain("conteudo-da-pagina");
+        expect(html).not.toContain("Não foi possível verificar seu acesso");
+      });
+
+      it("403 do get-session (origin fora do TRUSTED_ORIGINS): a página segue montada", () => {
+        const html = renderizarLiberadaEDepois({
+          error: { status: 403 } as RetornoDoUseSession["error"],
+        });
+
+        expect(html).toContain("conteudo-da-pagina");
+      });
+
+      it("refetch em voo sem a sessão: a página segue montada, sem tela de carregando", () => {
+        const html = renderizarLiberadaEDepois({ isPending: true });
+
+        expect(html).toContain("conteudo-da-pagina");
+        expect(html).not.toContain("Carregando...");
+      });
+
+      it("refresh com 401: a página desmonta e segue pro login do Hub", () => {
+        const html = renderizarLiberadaEDepois({
+          error: { status: 401 } as RetornoDoUseSession["error"],
+        });
+
+        expect(html).toContain("Carregando...");
+        expect(html).not.toContain("conteudo-da-pagina");
+      });
+
+      it("sessão volta com outra conta: a página da anterior desmonta", () => {
+        const html = renderizarLiberadaEDepois({
+          data: sessaoDe("u2") as RetornoDoUseSession["data"],
+        });
+
+        expect(html).toContain("Carregando...");
+        expect(html).not.toContain("conteudo-da-pagina");
       });
     });
 

@@ -96,8 +96,12 @@ export interface EntradaDoAcesso {
  *
  * Sem sessão por falha do `get-session` (não 401) também é "erro", nunca
  * "sem-sessao": o login do Hub não resolve servidor fora do ar. Com sessão em
- * mãos o erro é de um refetch (o Better Auth mantém o `data` anterior quando
- * não é 401) e o fluxo segue, porque o perfil ainda confere a membership.
+ * mãos e erro, o fluxo segue, porque o perfil ainda confere a membership: é o
+ * refetch do `useSession`, cujo `useAuthQuery` mantém o `data` anterior em erro
+ * que não é 401. O refresh de foco, de volta da rede e de polling
+ * (`fetchSessionWithRefresh` do Better Auth) não mantém: grava `data: null` em
+ * qualquer erro e a sessão some. Quem segura a página aberta nesse caso é
+ * `contaLiberada` com `mostraSistema`.
  *
  * Com membership, a org ativa da sessão ainda precisa ser a deste sistema: a
  * pessoa chega do Hub com a org ativa de lá (ou a da membership mais antiga).
@@ -115,8 +119,11 @@ export function estadoDoAcesso(entrada: EntradaDoAcesso): EstadoDoAcesso {
 
 /**
  * Conta que já passou pelo gate neste sistema, ou `null`. "liberado" grava a
- * conta; "carregando" e "ativando-org" (outra aba trocou a org ativa) mantêm;
- * bloqueio e falta de sessão apagam.
+ * conta. Com a mesma conta na sessão, "carregando" e "ativando-org" (outra aba
+ * trocou a org ativa) mantêm. Sem conta nenhuma (`userId` undefined), a sessão
+ * sumiu num refresh: "carregando" (em voo) e "erro" (falhou sem ser 401) também
+ * mantêm, porque não provam que a pessoa saiu. Outra conta na sessão,
+ * bloqueio, erro do perfil ou da ativação e 401 apagam.
  */
 export function contaLiberada(
   anterior: string | null,
@@ -124,18 +131,48 @@ export function contaLiberada(
   userId: string | undefined,
 ): string | null {
   if (estado === "liberado") return userId ?? null;
+  if (userId !== undefined && userId !== anterior) return null;
   if (estado === "carregando" || estado === "ativando-org") return anterior;
+  if (estado === "erro" && userId === undefined) return anterior;
   return null;
 }
 
 /**
- * Se o sistema, com a página aberta, fica montado. Só a primeira ativação da
- * org mostra "Carregando". Quando a conta já estava liberada e outra aba troca
- * a org ativa, o refetch no foco cai em "ativando-org" e a org é reativada em
- * segundo plano, sem desmontar a página (e o formulário que estiver nela).
+ * Se o sistema, com a página aberta, fica montado. Só a primeira entrada
+ * mostra "Carregando". Com a conta já liberada (`liberada`, de `contaLiberada`),
+ * o que não prova perda de acesso não desmonta a página nem o formulário que
+ * estiver nela:
+ * - outra aba troca a org ativa: "ativando-org", reativada em segundo plano;
+ * - refresh da sessão (foco, volta da rede, polling) em voo ou falhando sem ser
+ *   401 (5xx, 403 de origin fora do `TRUSTED_ORIGINS`): a sessão some
+ *   (`userId` undefined) e a página segue com a última sessão da conta
+ *   (`sessaoDoSistema`) até ela voltar;
+ * - perfil da mesma conta recarregando.
+ * Outra conta, 401, sem-acesso e erro do perfil ou da ativação desmontam.
  */
-export function mostraSistema(estado: EstadoDoAcesso, jaLiberado: boolean): boolean {
-  return estado === "liberado" || (estado === "ativando-org" && jaLiberado);
+export function mostraSistema(
+  estado: EstadoDoAcesso,
+  liberada: string | null,
+  userId: string | undefined,
+): boolean {
+  if (estado === "liberado") return true;
+  if (liberada === null) return false;
+  if (userId === undefined) return estado === "carregando" || estado === "erro";
+  return userId === liberada && (estado === "carregando" || estado === "ativando-org");
+}
+
+/**
+ * Sessão com que o sistema montado é desenhado: a atual ou, quando ela some
+ * num refresh, a última vista, e só se for da conta liberada. Sessão de outra
+ * conta nunca desenha a página.
+ */
+export function sessaoDoSistema<S extends { user: { id: string } }>(
+  atual: S | null | undefined,
+  ultima: S | null,
+  liberada: string | null,
+): S | null {
+  if (atual) return atual;
+  return ultima !== null && ultima.user.id === liberada ? ultima : null;
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   estadoDoAcesso,
   membershipDoSistema,
   mostraSistema,
+  sessaoDoSistema,
   sessaoFalhou,
   urlDeLoginDoHub,
   type EntradaDoAcesso,
@@ -178,33 +179,81 @@ describe("acesso", () => {
       expect(contaLiberada("u1", "sem-acesso", "u1")).toBeNull();
       expect(contaLiberada("u1", "sem-sessao", undefined)).toBeNull();
     });
+
+    it("sessão sumida num refresh (em voo ou falha que não é 401) mantém a conta", () => {
+      expect(contaLiberada("u1", "carregando", undefined)).toBe("u1");
+      expect(contaLiberada("u1", "erro", undefined)).toBe("u1");
+    });
+
+    it("outra conta na sessão apaga a conta liberada", () => {
+      expect(contaLiberada("u1", "carregando", "u2")).toBeNull();
+      expect(contaLiberada("u1", "ativando-org", "u2")).toBeNull();
+    });
+  });
+
+  describe("sessaoDoSistema", () => {
+    const sessaoDe = (id: string) => ({ user: { id } });
+
+    it("com a sessão em mãos, é ela", () => {
+      const atual = sessaoDe("u1");
+      expect(sessaoDoSistema(atual, sessaoDe("u1"), "u1")).toBe(atual);
+    });
+
+    it("sessão sumida num refresh: a última vista, da conta liberada", () => {
+      const ultima = sessaoDe("u1");
+      expect(sessaoDoSistema(null, ultima, "u1")).toBe(ultima);
+    });
+
+    it("última sessão vista de outra conta: nenhuma", () => {
+      expect(sessaoDoSistema(null, sessaoDe("u2"), "u1")).toBeNull();
+    });
+
+    it("sem conta liberada: nenhuma", () => {
+      expect(sessaoDoSistema(null, sessaoDe("u1"), null)).toBeNull();
+    });
   });
 
   describe("mostraSistema", () => {
     it("liberado monta o sistema", () => {
-      expect(mostraSistema("liberado", false)).toBe(true);
+      expect(mostraSistema("liberado", null, "u1")).toBe(true);
     });
 
     it("primeira ativação da org não monta: mostra carregando", () => {
-      expect(mostraSistema("ativando-org", false)).toBe(false);
+      expect(mostraSistema("ativando-org", null, "u1")).toBe(false);
     });
 
     it("reativação com a conta já liberada mantém o sistema montado", () => {
-      expect(mostraSistema("ativando-org", true)).toBe(true);
+      expect(mostraSistema("ativando-org", "u1", "u1")).toBe(true);
     });
 
-    it("carregando, erro e sem-acesso não montam, mesmo já liberado", () => {
-      expect(mostraSistema("carregando", true)).toBe(false);
-      expect(mostraSistema("erro", true)).toBe(false);
-      expect(mostraSistema("sem-acesso", true)).toBe(false);
+    it("sessão sumida num refresh (em voo ou falha que não é 401) mantém a conta liberada montada", () => {
+      expect(mostraSistema("carregando", "u1", undefined)).toBe(true);
+      expect(mostraSistema("erro", "u1", undefined)).toBe(true);
+    });
+
+    it("erro do perfil ou da ativação, sem-acesso e 401 não montam, mesmo já liberado", () => {
+      expect(mostraSistema("erro", "u1", "u1")).toBe(false);
+      expect(mostraSistema("sem-acesso", "u1", "u1")).toBe(false);
+      expect(mostraSistema("sem-sessao", "u1", undefined)).toBe(false);
+    });
+
+    it("outra conta na sessão não monta com a liberação da anterior", () => {
+      expect(mostraSistema("carregando", "u1", "u2")).toBe(false);
+      expect(mostraSistema("ativando-org", "u1", "u2")).toBe(false);
+    });
+
+    it("sessão sumida sem conta liberada não monta", () => {
+      expect(mostraSistema("carregando", null, undefined)).toBe(false);
+      expect(mostraSistema("erro", null, undefined)).toBe(false);
     });
 
     // O que o gate do layout faz a cada render: guarda a conta liberada e decide.
-    function montadoARender(passos: [EstadoDoAcesso, string][]): boolean[] {
+    // `userId` undefined é a sessão sumida (refresh em voo, falha ou 401).
+    function montadoARender(passos: [EstadoDoAcesso, string | undefined][]): boolean[] {
       let liberada: string | null = null;
       return passos.map(([estado, userId]) => {
         liberada = contaLiberada(liberada, estado, userId);
-        return mostraSistema(estado, liberada === userId);
+        return mostraSistema(estado, liberada, userId);
       });
     }
 
@@ -236,6 +285,90 @@ describe("acesso", () => {
           ["ativando-org", "u2"],
         ]),
       ).toEqual([true, false, false]);
+    });
+
+    it("refresh da sessão com 5xx ou 403 no foco: a página não desmonta até a sessão voltar", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["erro", undefined], // fetchSessionWithRefresh gravou data null
+          ["carregando", undefined], // refetch em voo, sem data
+          ["liberado", "u1"],
+        ]),
+      ).toEqual([true, true, true, true]);
+    });
+
+    it("refresh que segue falhando: a página continua montada", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["erro", undefined],
+          ["carregando", undefined],
+          ["erro", undefined],
+        ]),
+      ).toEqual([true, true, true, true]);
+    });
+
+    it("sessão volta da mesma conta com o perfil recarregando: a página continua", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["erro", undefined],
+          ["carregando", "u1"],
+          ["liberado", "u1"],
+        ]),
+      ).toEqual([true, true, true, true]);
+    });
+
+    it("refresh que vira 401: desmonta e segue pro login do Hub", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["erro", undefined],
+          ["carregando", undefined],
+          ["sem-sessao", undefined],
+        ]),
+      ).toEqual([true, true, true, false]);
+    });
+
+    it("sessão volta sem membership: desmonta", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["erro", undefined],
+          ["sem-acesso", "u1"],
+        ]),
+      ).toEqual([true, true, false]);
+    });
+
+    it("sessão volta com outra conta: não herda a liberação da anterior", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["erro", undefined],
+          ["carregando", "u2"],
+          ["ativando-org", "u2"],
+        ]),
+      ).toEqual([true, true, false, false]);
+    });
+
+    it("outra conta apareceu e a sessão sumiu: a anterior não volta a montar", () => {
+      expect(
+        montadoARender([
+          ["liberado", "u1"],
+          ["carregando", "u2"],
+          ["erro", undefined],
+        ]),
+      ).toEqual([true, false, false]);
+    });
+
+    it("get-session falhando na primeira entrada: nada monta, fica a tela de erro", () => {
+      expect(
+        montadoARender([
+          ["carregando", undefined],
+          ["erro", undefined],
+        ]),
+      ).toEqual([false, false]);
     });
 
     it("reativação que falhou e tentar de novo: volta a ser primeira ativação", () => {
