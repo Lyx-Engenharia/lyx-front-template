@@ -18,5 +18,19 @@ describe("sem-acesso", () => {
       expect(html).not.toContain("não é membro");
       expect(html).toContain('href="http://localhost:3002"');
     });
+
+    it("em erro, com onTentarDeNovo, oferece tentar de novo", () => {
+      const html = renderToStaticMarkup(
+        <SemAcesso motivo="erro" hubUrl="http://localhost:3002" onTentarDeNovo={() => {}} />,
+      );
+      expect(html).toContain("Tentar de novo");
+    });
+
+    it("sem acesso não oferece tentar de novo: repetir não cria membership", () => {
+      const html = renderToStaticMarkup(
+        <SemAcesso motivo="sem-acesso" hubUrl="http://localhost:3002" onTentarDeNovo={() => {}} />,
+      );
+      expect(html).not.toContain("Tentar de novo");
+    });
   });
 });

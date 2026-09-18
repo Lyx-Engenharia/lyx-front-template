@@ -3,6 +3,7 @@ import {
   buscarPerfil,
   estadoDoAcesso,
   membershipDoSistema,
+  sessaoFalhou,
   urlDeLoginDoHub,
   type EntradaDoAcesso,
   type Membership,
@@ -25,6 +26,7 @@ const perfilCom = (...memberships: Membership[]): Perfil => ({
 const liberada: EntradaDoAcesso = {
   sessaoCarregando: false,
   temSessao: true,
+  sessaoComErro: false,
   perfilCarregando: false,
   perfilComErro: false,
   membership: membershipDe("meu-sistema"),
@@ -69,6 +71,24 @@ describe("acesso", () => {
     });
   });
 
+  describe("sessaoFalhou", () => {
+    it("sem erro: não falhou", () => {
+      expect(sessaoFalhou(null)).toBe(false);
+    });
+
+    it("401 prova que não há sessão: não é falha", () => {
+      expect(sessaoFalhou({ status: 401 })).toBe(false);
+    });
+
+    it("5xx do get-session é falha", () => {
+      expect(sessaoFalhou({ status: 503 })).toBe(true);
+    });
+
+    it("falha de rede, timeout ou CORS chega sem status e é falha", () => {
+      expect(sessaoFalhou(new TypeError("Failed to fetch"))).toBe(true);
+    });
+  });
+
   describe("estadoDoAcesso", () => {
     it("fica carregando enquanto a sessão não resolveu", () => {
       expect(estadoDoAcesso({ ...liberada, sessaoCarregando: true, temSessao: false })).toBe(
@@ -80,6 +100,14 @@ describe("acesso", () => {
       expect(estadoDoAcesso({ ...liberada, temSessao: false, perfilCarregando: true })).toBe(
         "sem-sessao",
       );
+    });
+
+    it("get-session falhou sem ser 401: erro, nunca manda pro login do Hub", () => {
+      expect(estadoDoAcesso({ ...liberada, temSessao: false, sessaoComErro: true })).toBe("erro");
+    });
+
+    it("refetch da sessão falhou com a sessão anterior em mãos: segue o fluxo", () => {
+      expect(estadoDoAcesso({ ...liberada, sessaoComErro: true })).toBe("liberado");
     });
 
     it("fica carregando enquanto o perfil não chegou", () => {

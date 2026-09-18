@@ -49,9 +49,29 @@ export type EstadoDoAcesso =
   | "ativando-org"
   | "liberado";
 
+/**
+ * O que importa do `error` do `useSession()`. Resposta HTTP de erro chega com
+ * `status`; falha de rede, timeout e CORS chegam como o erro cru do fetch, sem
+ * `status` (o `.catch` do `useAuthQuery` do Better Auth).
+ */
+export type ErroDeSessao = { status?: number } | Error;
+
+/**
+ * O `get-session` falhou sem provar que a pessoa está deslogada. Só 401 prova
+ * isso; 5xx, timeout, CORS e falha de rede não dizem nada sobre o login.
+ * Tratar esses casos como "sem sessão" manda quem está logado pro login do Hub,
+ * e em loop se a origin do front faltar no `TRUSTED_ORIGINS` do monolito.
+ */
+export function sessaoFalhou(erro: ErroDeSessao | null | undefined): boolean {
+  if (!erro) return false;
+  return !("status" in erro) || erro.status !== 401;
+}
+
 export interface EntradaDoAcesso {
   sessaoCarregando: boolean;
   temSessao: boolean;
+  /** `sessaoFalhou(useSession().error)`. */
+  sessaoComErro: boolean;
   perfilCarregando: boolean;
   perfilComErro: boolean;
   membership: Membership | null;
@@ -65,13 +85,18 @@ export interface EntradaDoAcesso {
  * (o monolito é identidade única de todos os sistemas); quem dá acesso a ESTE
  * sistema é a membership. Erro ao buscar o perfil não libera: vira "erro".
  *
+ * Sem sessão por falha do `get-session` (não 401) também é "erro", nunca
+ * "sem-sessao": o login do Hub não resolve servidor fora do ar. Com sessão em
+ * mãos o erro é de um refetch (o Better Auth mantém o `data` anterior quando
+ * não é 401) e o fluxo segue, porque o perfil ainda confere a membership.
+ *
  * Com membership, a org ativa da sessão ainda precisa ser a deste sistema: a
  * pessoa chega do Hub com a org ativa de lá (ou a da membership mais antiga).
  * Até o `setActive` terminar o estado é "ativando-org"; se ele falhar, "erro".
  */
 export function estadoDoAcesso(entrada: EntradaDoAcesso): EstadoDoAcesso {
   if (entrada.sessaoCarregando) return "carregando";
-  if (!entrada.temSessao) return "sem-sessao";
+  if (!entrada.temSessao) return entrada.sessaoComErro ? "erro" : "sem-sessao";
   if (entrada.perfilComErro) return "erro";
   if (entrada.perfilCarregando) return "carregando";
   if (!entrada.membership) return "sem-acesso";

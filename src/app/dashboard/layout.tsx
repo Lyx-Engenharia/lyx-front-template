@@ -19,6 +19,7 @@ import {
   buscarPerfil,
   estadoDoAcesso,
   membershipDoSistema,
+  sessaoFalhou,
   urlDeLoginDoHub,
 } from "@/lib/acesso";
 import { ativarOrgDoSistema, authClient, useSession } from "@/lib/auth-client";
@@ -51,11 +52,13 @@ type Sessao = NonNullable<ReturnType<typeof useSession>["data"]>;
  * A autorização de verdade é do monolito; aqui é a porta de entrada.
  *
  * Login é do Hub (SSO pelo cookie `.lyxai.com.br`): sem sessão, vai pro login
- * do Hub com a URL atual em `?redirect=`. Como a pessoa chega com a org ativa
- * do Hub, o gate ativa a org deste sistema antes de liberar.
+ * do Hub com a URL atual em `?redirect=`. Falha do `get-session` que não é
+ * 401 não é falta de sessão: vira tela de erro com "Tentar de novo". Como a
+ * pessoa chega com a org ativa do Hub, o gate ativa a org deste sistema antes
+ * de liberar.
  */
 function useAcessoAoSistema() {
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending, error: erroDeSessao, refetch: recarregarSessao } = useSession();
   const [ativacaoComErro, setAtivacaoComErro] = useState(false);
   const perfil = useQuery({
     queryKey: ["me", "profile"],
@@ -65,6 +68,7 @@ function useAcessoAoSistema() {
   const estado = estadoDoAcesso({
     sessaoCarregando: isPending,
     temSessao: !!session,
+    sessaoComErro: sessaoFalhou(erroDeSessao),
     perfilCarregando: perfil.isPending,
     perfilComErro: perfil.isError,
     membership: membershipDoSistema(perfil.data, ORG_SLUG),
@@ -92,14 +96,21 @@ function useAcessoAoSistema() {
     };
   }, [estado]);
 
-  return { estado, session };
+  // Refaz o que pode ter falhado: sessão, perfil e ativação da org.
+  function tentarDeNovo() {
+    setAtivacaoComErro(false);
+    void recarregarSessao();
+    if (session) void perfil.refetch();
+  }
+
+  return { estado, session, tentarDeNovo };
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { estado, session } = useAcessoAoSistema();
+  const { estado, session, tentarDeNovo } = useAcessoAoSistema();
 
   if (estado === "sem-acesso" || estado === "erro") {
-    return <SemAcesso motivo={estado} hubUrl={HUB_URL} />;
+    return <SemAcesso motivo={estado} hubUrl={HUB_URL} onTentarDeNovo={tentarDeNovo} />;
   }
   if (estado !== "liberado" || !session) {
     return (
