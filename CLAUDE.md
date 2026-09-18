@@ -10,7 +10,7 @@
 
 **O que vem pronto:**
 
-- Layout `dashboard` com sidebar/topbar (Lyx Design System v2)
+- Layout `dashboard` com sidebar/topbar (Lyx Design System v2) e gate de acesso: sessão + membership na org `NEXT_PUBLIC_ORG_SLUG` via `GET /me/profile` (`lib/acesso.ts`); sem membership, tela "sem acesso" com link pro Hub
 - `login/page.tsx` integrado com Better Auth
 - `lib/auth-client.ts` — Better Auth + `organizationClient()`
 - `lib/api.ts` — fetch wrapper com `credentials: 'include'` + Origin header
@@ -59,6 +59,7 @@ Modelo de branches: **`feat/*` → PR → `develop` → PR → `main` → public
 - 🔒 **Server Components não podem importar Better Auth client.** O client é `'use client'`-only. Server Actions chamam o monolito direto via `fetch` com `Origin` header (Better Auth exige Origin no CSRF).
 - 🔒 **Toda chamada `fetch` server-side pra `/api/auth/*` precisa de `Origin: https://<seu-front>.lyxai.com.br`** (ou o origin canônico do front clonado).
 - 🔒 **`NEXT_PUBLIC_*` vars são inlinadas em build.** Sempre use `||` (não `??`) pra cobrir caso `""` quando ARG não é passado no build. Pra URLs canônicas, hardcoded > env var.
+- 🔒 **Acesso ao sistema = membership na org do sistema, lida de `GET /me/profile`.** Sessão válida só prova que a pessoa existe na Lyx. Nunca decida acesso com `authClient.organization.list()`: o plugin não filtra `member.deletedAt` (acesso desativado continua na lista). O gate do front é porta de entrada; a autorização de verdade é do monolito.
 - 🔒 **Zod nos forms e nos response handlers.** Resposta do monolito é shape conhecido, mas valide na borda — protege contra drift entre front e back.
 - 🔒 **Sem testes mockando `fetch` ou Better Auth.** Quando precisar testar lógica que consome o monolito, isole a função pura e teste ela. Integração HTTP fica fora de teste.
 

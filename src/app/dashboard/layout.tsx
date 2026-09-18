@@ -12,7 +12,11 @@ import {
   Settings,
   Sun,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { SemAcesso } from "@/components/sem-acesso";
+import { buscarPerfil, estadoDoAcesso, membershipDoSistema } from "@/lib/acesso";
 import { authClient, useSession } from "@/lib/auth-client";
+import { HUB_URL, ORG_SLUG } from "@/lib/env";
 
 // ─── Personalizar aqui ─────────────────────────────────────────
 const BRAND = { prefix: "Meu", suffix: "Sistema", tagline: "Sub-título do sistema" };
@@ -34,16 +38,58 @@ function greeting() {
   return "Boa noite";
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+type Sessao = NonNullable<ReturnType<typeof useSession>["data"]>;
+
+/**
+ * Gate de acesso. Sessão prova que a pessoa existe na Lyx, não que ela pertence
+ * a ESTE sistema: depois da sessão, `GET /me/profile` e exige membership na org
+ * `ORG_SLUG`. Sem isso, qualquer usuário de qualquer outro sistema entraria.
+ * A autorização de verdade é do monolito; aqui é a porta de entrada.
+ */
+function useAcessoAoSistema() {
   const router = useRouter();
-  const pathname = usePathname();
   const { data: session, isPending } = useSession();
-  const [collapsed, setCollapsed] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const perfil = useQuery({
+    queryKey: ["me", "profile"],
+    queryFn: () => buscarPerfil(),
+    enabled: !!session,
+  });
+  const estado = estadoDoAcesso({
+    sessaoCarregando: isPending,
+    temSessao: !!session,
+    perfilCarregando: perfil.isPending,
+    perfilComErro: perfil.isError,
+    membership: membershipDoSistema(perfil.data, ORG_SLUG),
+  });
 
   useEffect(() => {
-    if (!isPending && !session) router.replace("/login");
-  }, [isPending, session, router]);
+    if (estado === "sem-sessao") router.replace("/login");
+  }, [estado, router]);
+
+  return { estado, session };
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { estado, session } = useAcessoAoSistema();
+
+  if (estado === "sem-acesso" || estado === "erro") {
+    return <SemAcesso motivo={estado} hubUrl={HUB_URL} />;
+  }
+  if (estado !== "liberado" || !session) {
+    return (
+      <div className="app-shell" style={{ alignItems: "center", justifyContent: "center" }}>
+        <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Carregando...</span>
+      </div>
+    );
+  }
+  return <DashboardShell session={session}>{children}</DashboardShell>;
+}
+
+function DashboardShell({ session, children }: { session: Sessao; children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     const stored = (localStorage.getItem("theme") as "light" | "dark" | null) ?? null;
@@ -63,14 +109,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   async function handleSignOut() {
     await authClient.signOut();
     router.push("/login");
-  }
-
-  if (isPending || !session) {
-    return (
-      <div className="app-shell" style={{ alignItems: "center", justifyContent: "center" }}>
-        <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Carregando...</span>
-      </div>
-    );
   }
 
   const initials =
