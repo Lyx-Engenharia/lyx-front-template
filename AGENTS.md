@@ -6,12 +6,12 @@
 
 ## TL;DR
 
-**Template Next.js 16 (App Router) + React 19 + Tailwind 4 + shadcn/ui** pra criar novos fronts CRUD que consomem o monolito `lyx-monolith`. Better Auth client (cookie cross-subdomain) já wireado. TanStack Query 5 + React Hook Form + Zod 4 + Sonner. Layout dashboard + login já prontos. Cloná-lo via `npx degit Lyx-Engenharia/lyx-front-template <novo-projeto>` e renomear pacote/rotas pro domínio do novo front.
+**Template Next.js 16 (App Router) + React 19 + Tailwind 4 + shadcn/ui** pra criar novos fronts CRUD que consomem o monolito `lyx-monolith`. Better Auth client (cookie cross-subdomain) já wireado. TanStack Query 5 + React Hook Form + Zod 4 + Sonner. Layout dashboard + gate de acesso já prontos; o login é do Hub (SSO). Cloná-lo via `npx degit Lyx-Engenharia/lyx-front-template <novo-projeto>` e renomear pacote/rotas pro domínio do novo front.
 
 **O que vem pronto:**
 
 - Layout `dashboard` com sidebar/topbar (Lyx Design System v2) e gate de acesso: sessão + membership na org `NEXT_PUBLIC_ORG_SLUG` via `GET /me/profile` (`lib/acesso.ts`); sem membership, tela "sem acesso" com link pro Hub
-- `login/page.tsx` integrado com Better Auth
+- **Sem tela de login própria (SSO).** Sem sessão, o dashboard manda pro login do Hub (`https://hub.lyxai.com.br/login?redirect=<url atual>`); a sessão volta pelo cookie `.lyxai.com.br`. Com membership confirmada, o gate ativa a org do sistema na sessão (`ativarOrgDoSistema()`, setActive por slug). Pré-requisito pra funcionar em prod: a origin do front na allowlist de redirect do Hub (`lyx-hub-front/src/lib/login-redirect.ts`) e no `TRUSTED_ORIGINS` do monolito
 - `lib/auth-client.ts` — Better Auth + `organizationClient()`
 - `lib/api.ts` — fetch wrapper com `credentials: 'include'` + Origin header
 - `lib/example/queries.ts`: EXEMPLO de hooks TanStack Query (CRUD) contra `/items`, rota que não existe no monolito: só mostra o formato, apague ao clonar

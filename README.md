@@ -38,8 +38,8 @@ src/
 ├── app/
 │   ├── layout.tsx              ← root: fonts + Providers
 │   ├── globals.css             ← tokens 52W + classes Lyx
-│   ├── page.tsx                ← redirect → /login
-│   ├── login/page.tsx
+│   ├── page.tsx                ← redirect → /dashboard
+│   ├── login/page.tsx          ← só redirect: o login é do Hub (SSO)
 │   └── dashboard/
 │       ├── layout.tsx          ← sidebar + topbar 52W
 │       ├── page.tsx            ← dashboard demo (entregas)
@@ -75,7 +75,7 @@ src/
 
 ### 2. Logo + Brand
 
-Nome, tagline e descrição moram num lugar só, `src/config/brand.ts`, lido pela sidebar do dashboard, pela tela de login e pelo `metadata` (`<title>`/description) do `app/layout.tsx`:
+Nome, tagline e descrição moram num lugar só, `src/config/brand.ts`, lido pela sidebar do dashboard e pelo `metadata` (`<title>`/description) do `app/layout.tsx`:
 ```ts
 export const BRAND = {
   prefix: "Meu",
@@ -124,7 +124,9 @@ Consumo via `NEXT_PUBLIC_API_URL`:
 - Domínio: `/<modulo>/*` (ex: `/entregas`, `/sistemas`, `/setores`)
 - Cookie cross-subdomain via `credentials: 'include'`
 
-Org ativa setada no login via `authClient.organization.setActive({ organizationSlug: ORG_SLUG })` (`ativarOrgDoSistema()` em `lib/auth-client.ts`), com o slug vindo de `NEXT_PUBLIC_ORG_SLUG`.
+Login é do Hub (SSO pelo cookie `.lyxai.com.br`): sem sessão, o layout do dashboard manda pra `https://hub.lyxai.com.br/login?redirect=<url atual>`. Com sessão, o gate busca `GET /me/profile` e exige membership na org `NEXT_PUBLIC_ORG_SLUG`; confirmada a membership, ativa essa org na sessão via `authClient.organization.setActive({ organizationSlug: ORG_SLUG })` (`ativarOrgDoSistema()` em `lib/auth-client.ts`).
+
+Pra funcionar em prod, a origin do front precisa estar na allowlist de redirect do Hub (`lyx-hub-front/src/lib/login-redirect.ts`; fora dela a pessoa cai no dashboard do Hub depois do login) e no `TRUSTED_ORIGINS` do monolito (CORS + CSRF do Better Auth).
 
 ## Build & Deploy
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bell,
@@ -15,8 +15,13 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { SemAcesso } from "@/components/sem-acesso";
 import { BRAND } from "@/config/brand";
-import { buscarPerfil, estadoDoAcesso, membershipDoSistema } from "@/lib/acesso";
-import { authClient, useSession } from "@/lib/auth-client";
+import {
+  buscarPerfil,
+  estadoDoAcesso,
+  membershipDoSistema,
+  urlDeLoginDoHub,
+} from "@/lib/acesso";
+import { ativarOrgDoSistema, authClient, useSession } from "@/lib/auth-client";
 import { HUB_URL, ORG_SLUG } from "@/lib/env";
 
 // ─── Personalizar aqui (nome e tagline ficam em src/config/brand.ts) ───
@@ -44,10 +49,14 @@ type Sessao = NonNullable<ReturnType<typeof useSession>["data"]>;
  * a ESTE sistema: depois da sessão, `GET /me/profile` e exige membership na org
  * `ORG_SLUG`. Sem isso, qualquer usuário de qualquer outro sistema entraria.
  * A autorização de verdade é do monolito; aqui é a porta de entrada.
+ *
+ * Login é do Hub (SSO pelo cookie `.lyxai.com.br`): sem sessão, vai pro login
+ * do Hub com a URL atual em `?redirect=`. Como a pessoa chega com a org ativa
+ * do Hub, o gate ativa a org deste sistema antes de liberar.
  */
 function useAcessoAoSistema() {
-  const router = useRouter();
   const { data: session, isPending } = useSession();
+  const [ativacaoComErro, setAtivacaoComErro] = useState(false);
   const perfil = useQuery({
     queryKey: ["me", "profile"],
     queryFn: () => buscarPerfil(),
@@ -59,11 +68,29 @@ function useAcessoAoSistema() {
     perfilCarregando: perfil.isPending,
     perfilComErro: perfil.isError,
     membership: membershipDoSistema(perfil.data, ORG_SLUG),
+    orgAtivaId: session?.session.activeOrganizationId,
+    ativacaoComErro,
   });
 
   useEffect(() => {
-    if (estado === "sem-sessao") router.replace("/login");
-  }, [estado, router]);
+    if (estado === "sem-sessao") {
+      window.location.replace(urlDeLoginDoHub(HUB_URL, window.location.href));
+    }
+  }, [estado]);
+
+  // Só roda com membership confirmada: setActive numa org de que a pessoa não
+  // é membro zera a org ativa da sessão, que é compartilhada com o Hub. O
+  // Better Auth recarrega a sessão sozinho depois do set-active.
+  useEffect(() => {
+    if (estado !== "ativando-org") return;
+    let cancelado = false;
+    ativarOrgDoSistema().then(({ error }) => {
+      if (error && !cancelado) setAtivacaoComErro(true);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [estado]);
 
   return { estado, session };
 }
@@ -85,7 +112,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 }
 
 function DashboardShell({ session, children }: { session: Sessao; children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -107,7 +133,7 @@ function DashboardShell({ session, children }: { session: Sessao; children: Reac
 
   async function handleSignOut() {
     await authClient.signOut();
-    router.push("/login");
+    window.location.replace(urlDeLoginDoHub(HUB_URL, `${window.location.origin}/dashboard`));
   }
 
   const initials =

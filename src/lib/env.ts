@@ -32,7 +32,7 @@ export const API_URL = valorPublico(process.env.NEXT_PUBLIC_API_URL, {
  */
 export const ORG_SLUG = process.env.NEXT_PUBLIC_ORG_SLUG || "meu-sistema";
 
-/** Hub de sistemas: de onde a pessoa vem e pra onde volta quando não tem acesso. */
+/** Hub de sistemas: onde a pessoa faz login (SSO) e pra onde volta quando não tem acesso. */
 export const HUB_URL = valorPublico(process.env.NEXT_PUBLIC_HUB_URL, {
   prod: "https://hub.lyxai.com.br",
   dev: "http://localhost:3002",

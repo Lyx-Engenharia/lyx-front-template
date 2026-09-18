@@ -3,6 +3,7 @@ import {
   buscarPerfil,
   estadoDoAcesso,
   membershipDoSistema,
+  urlDeLoginDoHub,
   type EntradaDoAcesso,
   type Membership,
   type Perfil,
@@ -27,6 +28,8 @@ const liberada: EntradaDoAcesso = {
   perfilCarregando: false,
   perfilComErro: false,
   membership: membershipDe("meu-sistema"),
+  orgAtivaId: "org-meu-sistema",
+  ativacaoComErro: false,
 };
 
 describe("acesso", () => {
@@ -93,8 +96,44 @@ describe("acesso", () => {
       expect(estadoDoAcesso({ ...liberada, membership: null })).toBe("sem-acesso");
     });
 
-    it("sessão válida com membership no sistema: liberado", () => {
+    it("sessão válida com membership e org ativa deste sistema: liberado", () => {
       expect(estadoDoAcesso(liberada)).toBe("liberado");
+    });
+
+    it("chegando do Hub com outra org ativa: ativando-org", () => {
+      expect(estadoDoAcesso({ ...liberada, orgAtivaId: "org-hub" })).toBe("ativando-org");
+    });
+
+    it("sessão sem org ativa nenhuma: ativando-org", () => {
+      expect(estadoDoAcesso({ ...liberada, orgAtivaId: null })).toBe("ativando-org");
+    });
+
+    it("setActive falhou: erro, nunca libera com a org errada", () => {
+      expect(
+        estadoDoAcesso({ ...liberada, orgAtivaId: "org-hub", ativacaoComErro: true }),
+      ).toBe("erro");
+    });
+
+    it("sem membership não tenta ativar org: sem-acesso", () => {
+      expect(estadoDoAcesso({ ...liberada, membership: null, orgAtivaId: "org-hub" })).toBe(
+        "sem-acesso",
+      );
+    });
+  });
+
+  describe("urlDeLoginDoHub", () => {
+    it("aponta pro /login do Hub com a URL atual em ?redirect=", () => {
+      expect(
+        urlDeLoginDoHub("https://hub.lyxai.com.br", "https://meu.lyxai.com.br/dashboard?aba=2"),
+      ).toBe(
+        "https://hub.lyxai.com.br/login?redirect=https%3A%2F%2Fmeu.lyxai.com.br%2Fdashboard%3Faba%3D2",
+      );
+    });
+
+    it("barra final na URL do Hub não duplica a barra", () => {
+      expect(urlDeLoginDoHub("http://localhost:3002/", "http://localhost:3001/dashboard")).toBe(
+        "http://localhost:3002/login?redirect=http%3A%2F%2Flocalhost%3A3001%2Fdashboard",
+      );
     });
   });
 });
