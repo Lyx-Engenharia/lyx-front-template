@@ -13,9 +13,11 @@ export async function api<T = unknown>(
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
+    // Sem `Origin` aqui: no browser ele é header proibido (o fetch ignora e
+    // manda o de verdade). Chamada server-side a /api/auth/* que precisa de
+    // Origin passa o header no `init`.
     headers: {
       "Content-Type": "application/json",
-      Origin: typeof window !== "undefined" ? window.location.origin : API_URL,
       ...(init?.headers ?? {}),
     },
   });

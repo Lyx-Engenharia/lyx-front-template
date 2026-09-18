@@ -13,7 +13,7 @@
 - Layout `dashboard` com sidebar/topbar (Lyx Design System v2) e gate de acesso: sessão + membership na org `NEXT_PUBLIC_ORG_SLUG` via `GET /me/profile` (`lib/acesso.ts`); sem membership, tela "sem acesso" com link pro Hub
 - **Sem tela de login própria (SSO).** Sem sessão, o dashboard manda pro login do Hub (`https://hub.lyxai.com.br/login?redirect=<url atual>`); a sessão volta pelo cookie `.lyxai.com.br`. Com membership confirmada, o gate ativa a org do sistema na sessão (`ativarOrgDoSistema()`, setActive por slug). Pré-requisito pra funcionar em prod: a origin do front na allowlist de redirect do Hub (`lyx-hub-front/src/lib/login-redirect.ts`) e no `TRUSTED_ORIGINS` do monolito
 - `lib/auth-client.ts` — Better Auth + `organizationClient()`
-- `lib/api.ts` — fetch wrapper com `credentials: 'include'` + Origin header
+- `lib/api.ts`: fetch wrapper com `credentials: 'include'` (sem `Origin` à mão: no browser é header proibido e o fetch manda o real; server-side, passe no `init`)
 - `lib/example/queries.ts`: EXEMPLO de hooks TanStack Query (CRUD) contra `/items`, rota que não existe no monolito: só mostra o formato, apague ao clonar
 - `components/providers.tsx` — `QueryClientProvider` + `Toaster`
 - 15 componentes shadcn/ui em `src/components/ui/*`
