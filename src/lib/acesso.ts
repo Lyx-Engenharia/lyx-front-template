@@ -30,6 +30,15 @@ export function buscarPerfil(buscar: Buscador = api): Promise<Perfil> {
 }
 
 /**
+ * Chave do perfil no React Query, por usuário. Sem o id, a conta que entra em
+ * outra aba herdava do cache as memberships da anterior e passava pelo gate
+ * com elas. Sem id não há perfil a buscar: a query fica desligada.
+ */
+export function chaveDoPerfil(userId: string | undefined) {
+  return ["me", "profile", userId] as const;
+}
+
+/**
  * Membership da pessoa na org deste sistema, ou `null`. Slug vazio = ninguém
  * entra (fail-closed), em vez de casar com qualquer coisa.
  */

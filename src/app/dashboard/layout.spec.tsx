@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Perfil } from "@/lib/acesso";
+import { chaveDoPerfil, type Perfil } from "@/lib/acesso";
 import { useSession } from "@/lib/auth-client";
 import { ORG_SLUG } from "@/lib/env";
 import DashboardLayout from "./layout";
@@ -103,10 +103,33 @@ describe("dashboard/layout", () => {
         });
 
         const html = renderizar((cliente) =>
-          cliente.setQueryData(["me", "profile"], perfilCom("u1", [ORG_SLUG])),
+          cliente.setQueryData(chaveDoPerfil("u1"), perfilCom("u1", [ORG_SLUG])),
         );
 
         expect(html).toContain("conteudo-da-pagina");
+      });
+    });
+
+    describe("perfil", () => {
+      it("perfil da própria conta com membership libera a página", () => {
+        useSessionDevolve({ data: sessaoDe("u-novo") as RetornoDoUseSession["data"] });
+
+        const html = renderizar((cliente) =>
+          cliente.setQueryData(chaveDoPerfil("u-novo"), perfilCom("u-novo", [ORG_SLUG])),
+        );
+
+        expect(html).toContain("conteudo-da-pagina");
+      });
+
+      it("conta trocada em outra aba não herda do cache as memberships da anterior", () => {
+        useSessionDevolve({ data: sessaoDe("u-novo") as RetornoDoUseSession["data"] });
+
+        const html = renderizar((cliente) =>
+          cliente.setQueryData(chaveDoPerfil("u-antigo"), perfilCom("u-antigo", [ORG_SLUG])),
+        );
+
+        expect(html).toContain("Carregando...");
+        expect(html).not.toContain("conteudo-da-pagina");
       });
     });
   });

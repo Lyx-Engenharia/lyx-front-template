@@ -17,6 +17,7 @@ import { SemAcesso } from "@/components/sem-acesso";
 import { BRAND } from "@/config/brand";
 import {
   buscarPerfil,
+  chaveDoPerfil,
   estadoDoAcesso,
   membershipDoSistema,
   sessaoFalhou,
@@ -60,10 +61,11 @@ type Sessao = NonNullable<ReturnType<typeof useSession>["data"]>;
 function useAcessoAoSistema() {
   const { data: session, isPending, error: erroDeSessao, refetch: recarregarSessao } = useSession();
   const [ativacaoComErro, setAtivacaoComErro] = useState(false);
+  const userId = session?.user.id;
   const perfil = useQuery({
-    queryKey: ["me", "profile"],
+    queryKey: chaveDoPerfil(userId),
     queryFn: () => buscarPerfil(),
-    enabled: !!session,
+    enabled: !!userId,
   });
   const estado = estadoDoAcesso({
     sessaoCarregando: isPending,
@@ -100,7 +102,7 @@ function useAcessoAoSistema() {
   function tentarDeNovo() {
     setAtivacaoComErro(false);
     void recarregarSessao();
-    if (session) void perfil.refetch();
+    if (userId) void perfil.refetch();
   }
 
   return { estado, session, tentarDeNovo };

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buscarPerfil,
+  chaveDoPerfil,
   estadoDoAcesso,
   membershipDoSistema,
   sessaoFalhou,
@@ -46,6 +47,16 @@ describe("acesso", () => {
 
       await expect(buscarPerfil(buscar)).resolves.toBe(perfil);
       expect(pedidos).toEqual(["/me/profile"]);
+    });
+  });
+
+  describe("chaveDoPerfil", () => {
+    it("contas diferentes não dividem o perfil no cache", () => {
+      expect(chaveDoPerfil("u1")).not.toEqual(chaveDoPerfil("u2"));
+    });
+
+    it("leva o id da conta na chave de /me/profile", () => {
+      expect(chaveDoPerfil("u1")).toEqual(["me", "profile", "u1"]);
     });
   });
 
