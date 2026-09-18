@@ -1,10 +1,15 @@
 services:
   web:
-    build: .
+    # NEXT_PUBLIC_* entram como build args: são inlinadas no `next build`, e
+    # `environment:` em runtime não muda o bundle que já foi gerado.
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+        NEXT_PUBLIC_ORG_SLUG: ${NEXT_PUBLIC_ORG_SLUG:-}
+        NEXT_PUBLIC_HUB_URL: ${NEXT_PUBLIC_HUB_URL:-}
     container_name: lyx-front
     ports:
       - "3001:3000"
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
-      NEXT_PUBLIC_ORG_ID_ENTREGAS: ${NEXT_PUBLIC_ORG_ID_ENTREGAS}

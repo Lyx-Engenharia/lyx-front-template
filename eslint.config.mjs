@@ -26,8 +26,8 @@ const eslintConfig = [
   ]),
   // ── Overrides app-specific do TEMPLATE ────────────────────────────────────
   // TODO(2026-06-15): refatorar theme toggle pra lazy initial state.
-  // TODO(2026-06-15): split DashboardLayout (208 linhas) e LoginPage (237 linhas)
-  //   em sub-componentes. Por enquanto, override pra max-lines-per-function/complexity
+  // TODO(2026-06-15): split DashboardShell (~200 linhas) em sub-componentes.
+  //   Por enquanto, override pra max-lines-per-function/complexity
   //   nesses arquivos específicos — não é debt do audit pipeline, é debt do template
   //   original que estava mascarado como warn.
   {
@@ -39,12 +39,6 @@ const eslintConfig = [
       "react-hooks/set-state-in-effect": "warn",
       "max-lines-per-function": "off",
       complexity: "off",
-    },
-  },
-  {
-    files: ["src/app/login/page.tsx"],
-    rules: {
-      "max-lines-per-function": "off",
     },
   },
 ];

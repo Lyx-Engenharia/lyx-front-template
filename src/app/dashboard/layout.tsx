@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bell,
@@ -12,11 +12,25 @@ import {
   Settings,
   Sun,
 } from "lucide-react";
-import { authClient, useSession } from "@/lib/auth-client";
+import { useQuery } from "@tanstack/react-query";
+import { SemAcesso } from "@/components/sem-acesso";
+import { BRAND } from "@/config/brand";
+import {
+  buscarPerfil,
+  chaveDoPerfil,
+  contaLiberada,
+  estadoDoAcesso,
+  falhaDeAtivacao,
+  membershipDoSistema,
+  mostraSistema,
+  sessaoDoSistema,
+  sessaoFalhou,
+  urlDeLoginDoHub,
+} from "@/lib/acesso";
+import { ativarOrgDoSistema, authClient, useSession } from "@/lib/auth-client";
+import { HUB_URL, ORG_SLUG } from "@/lib/env";
 
-// ─── Personalizar aqui ─────────────────────────────────────────
-const BRAND = { prefix: "Meu", suffix: "Sistema", tagline: "Sub-título do sistema" };
-
+// ─── Personalizar aqui (nome e tagline ficam em src/config/brand.ts) ───
 const navOperacional = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   // { href: "/dashboard/<modulo>", label: "<Módulo>", icon: <Icon> },
@@ -34,16 +48,109 @@ function greeting() {
   return "Boa noite";
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { data: session, isPending } = useSession();
-  const [collapsed, setCollapsed] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+type Sessao = NonNullable<ReturnType<typeof useSession>["data"]>;
+
+/**
+ * Gate de acesso. Sessão prova que a pessoa existe na Lyx, não que ela pertence
+ * a ESTE sistema: depois da sessão, `GET /me/profile` e exige membership na org
+ * `ORG_SLUG`. Sem isso, qualquer usuário de qualquer outro sistema entraria.
+ * A autorização de verdade é do monolito; aqui é a porta de entrada.
+ *
+ * Login é do Hub (SSO pelo cookie `.lyxai.com.br`): sem sessão, vai pro login
+ * do Hub com a URL atual em `?redirect=`. Falha do `get-session` que não é
+ * 401 não é falta de sessão: vira tela de erro com "Tentar de novo", ou, com a
+ * página já liberada, a página segue montada até a sessão voltar. Como a
+ * pessoa chega com a org ativa do Hub, o gate ativa a org deste sistema antes
+ * de liberar.
+ */
+function useAcessoAoSistema() {
+  const { data: session, isPending, error: erroDeSessao, refetch: recarregarSessao } = useSession();
+  const [ativacaoComErro, setAtivacaoComErro] = useState(false);
+  const userId = session?.user.id;
+  const perfil = useQuery({
+    queryKey: chaveDoPerfil(userId),
+    queryFn: () => buscarPerfil(),
+    enabled: !!userId,
+  });
+  const estado = estadoDoAcesso({
+    sessaoCarregando: isPending,
+    temSessao: !!session,
+    sessaoComErro: sessaoFalhou(erroDeSessao),
+    perfilCarregando: perfil.isPending,
+    perfilComErro: perfil.isError,
+    membership: membershipDoSistema(perfil.data, ORG_SLUG),
+    orgAtivaId: session?.session.activeOrganizationId,
+    ativacaoComErro,
+  });
+  // A falha do setActive vale até o acesso voltar a "liberado" por qualquer caminho.
+  const ativacaoSegueComErro = falhaDeAtivacao(ativacaoComErro, estado);
+  if (ativacaoSegueComErro !== ativacaoComErro) setAtivacaoComErro(ativacaoSegueComErro);
+
+  // Lembra quem já passou pelo gate e a última sessão vista (atualizar estado
+  // no render é o padrão do React pra guardar algo do render anterior, sem
+  // render extra de efeito). A sessão lembrada desenha a página quando o
+  // refresh da sessão a apaga (ver `mostraSistema`).
+  const [liberadaPara, setLiberadaPara] = useState<string | null>(null);
+  const liberadaAgora = contaLiberada(liberadaPara, estado, userId);
+  if (liberadaAgora !== liberadaPara) setLiberadaPara(liberadaAgora);
+  const [ultimaSessao, setUltimaSessao] = useState<Sessao | null>(null);
+  if (session && session !== ultimaSessao) setUltimaSessao(session);
+  const sessaoMontada = mostraSistema(estado, liberadaAgora, userId)
+    ? sessaoDoSistema(session, ultimaSessao, liberadaAgora)
+    : null;
 
   useEffect(() => {
-    if (!isPending && !session) router.replace("/login");
-  }, [isPending, session, router]);
+    if (estado === "sem-sessao") {
+      window.location.replace(urlDeLoginDoHub(HUB_URL, window.location.href));
+    }
+  }, [estado]);
+
+  // Só roda com membership confirmada: setActive numa org de que a pessoa não
+  // é membro zera a org ativa da sessão, que é compartilhada com o Hub. O
+  // Better Auth recarrega a sessão sozinho depois do set-active. Se a conta já
+  // estava liberada, isto roda em segundo plano com a página montada.
+  useEffect(() => {
+    if (estado !== "ativando-org") return;
+    let cancelado = false;
+    ativarOrgDoSistema().then(({ error }) => {
+      if (error && !cancelado) setAtivacaoComErro(true);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [estado]);
+
+  // Refaz o que pode ter falhado: sessão, perfil e ativação da org.
+  function tentarDeNovo() {
+    setAtivacaoComErro(false);
+    void recarregarSessao();
+    if (userId) void perfil.refetch();
+  }
+
+  return { estado, sessaoMontada, tentarDeNovo };
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { estado, sessaoMontada, tentarDeNovo } = useAcessoAoSistema();
+
+  // Antes do "erro": falha do refresh da sessão com a página liberada não a desmonta.
+  if (sessaoMontada) {
+    return <DashboardShell session={sessaoMontada}>{children}</DashboardShell>;
+  }
+  if (estado === "sem-acesso" || estado === "erro") {
+    return <SemAcesso motivo={estado} hubUrl={HUB_URL} onTentarDeNovo={tentarDeNovo} />;
+  }
+  return (
+    <div className="app-shell" style={{ alignItems: "center", justifyContent: "center" }}>
+      <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Carregando...</span>
+    </div>
+  );
+}
+
+function DashboardShell({ session, children }: { session: Sessao; children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     const stored = (localStorage.getItem("theme") as "light" | "dark" | null) ?? null;
@@ -62,15 +169,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   async function handleSignOut() {
     await authClient.signOut();
-    router.push("/login");
-  }
-
-  if (isPending || !session) {
-    return (
-      <div className="app-shell" style={{ alignItems: "center", justifyContent: "center" }}>
-        <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Carregando...</span>
-      </div>
-    );
+    window.location.replace(urlDeLoginDoHub(HUB_URL, `${window.location.origin}/dashboard`));
   }
 
   const initials =

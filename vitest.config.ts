@@ -36,7 +36,7 @@ export default defineConfig({
         // No template, ficam fora do gate. Em repo consumidor REMOVER estes excludes.
         'src/lib/api.ts',
         'src/lib/auth-client.ts',
-        'src/lib/queries.ts',
+        'src/lib/example/queries.ts',
         'src/lib/utils.ts',
         'src/components/providers.tsx',
         'src/components/lyx-modal.tsx',

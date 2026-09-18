@@ -24,7 +24,7 @@ npm install
 
 # 3. Env
 cp .env.example .env.local
-# edita NEXT_PUBLIC_API_URL + NEXT_PUBLIC_ORG_ID_ENTREGAS
+# edita NEXT_PUBLIC_API_URL + NEXT_PUBLIC_ORG_SLUG
 
 # 4. Dev
 npm run dev
@@ -38,8 +38,8 @@ src/
 ├── app/
 │   ├── layout.tsx              ← root: fonts + Providers
 │   ├── globals.css             ← tokens 52W + classes Lyx
-│   ├── page.tsx                ← redirect → /login
-│   ├── login/page.tsx
+│   ├── page.tsx                ← redirect → /dashboard
+│   ├── login/page.tsx          ← só redirect: o login é do Hub (SSO)
 │   └── dashboard/
 │       ├── layout.tsx          ← sidebar + topbar 52W
 │       ├── page.tsx            ← dashboard demo (entregas)
@@ -56,7 +56,7 @@ src/
     ├── utils.ts                ← cn()
     ├── api.ts                  ← fetch wrapper credentials
     ├── auth-client.ts          ← Better Auth + organization
-    └── queries.ts              ← TanStack hooks padrão
+    └── example/queries.ts      ← EXEMPLO de hooks TanStack (rota /items não existe)
 ```
 
 ## Customizar para seu sistema
@@ -75,10 +75,14 @@ src/
 
 ### 2. Logo + Brand
 
-`src/app/dashboard/layout.tsx` — header da sidebar:
-```tsx
-<span>Meu<span style={{ color: "var(--accent)" }}>Sistema</span></span>
-<span>Tracking de algo</span>
+Nome, tagline e descrição moram num lugar só, `src/config/brand.ts`, lido pela sidebar do dashboard e pelo `metadata` (`<title>`/description) do `app/layout.tsx`:
+```ts
+export const BRAND = {
+  prefix: "Meu",
+  suffix: "Sistema",
+  tagline: "Sub-título do sistema",
+  // ...
+} as const;
 ```
 
 SVG logo: `src/components/ui/lyx-logo.tsx` ou inline no layout.
@@ -95,7 +99,7 @@ const navOperacional = [
 
 ### 4. Domínio (substituir Entregas)
 
-Renomear `src/app/dashboard/entregas/` → seu domínio. Atualizar `lib/queries.ts` com types/endpoints.
+Renomear `src/app/dashboard/entregas/` → seu domínio. Escrever os hooks do domínio em `src/lib/` (use `lib/example/queries.ts` só como formato: a rota `/items` não existe no monolito) e apagar `src/lib/example/queries.ts`.
 
 ### 5. Auth
 
@@ -120,7 +124,9 @@ Consumo via `NEXT_PUBLIC_API_URL`:
 - Domínio: `/<modulo>/*` (ex: `/entregas`, `/sistemas`, `/setores`)
 - Cookie cross-subdomain via `credentials: 'include'`
 
-Org ativa setada no login via `authClient.organization.setActive({ organizationId })`.
+Login é do Hub (SSO pelo cookie `.lyxai.com.br`): sem sessão, o layout do dashboard manda pra `https://hub.lyxai.com.br/login?redirect=<url atual>`. Com sessão, o gate busca `GET /me/profile` e exige membership na org `NEXT_PUBLIC_ORG_SLUG`; confirmada a membership, ativa essa org na sessão via `authClient.organization.setActive({ organizationSlug: ORG_SLUG })` (`ativarOrgDoSistema()` em `lib/auth-client.ts`).
+
+Pra funcionar em prod, a origin do front precisa estar na allowlist de redirect do Hub (`lyx-hub-front/src/lib/login-redirect.ts`; fora dela a pessoa cai no dashboard do Hub depois do login) e no `TRUSTED_ORIGINS` do monolito (CORS + CSRF do Better Auth).
 
 ## Build & Deploy
 
@@ -133,6 +139,8 @@ docker compose up --build
 ```
 
 `next.config.ts` configurado com `output: "standalone"` para Docker minimal.
+
+`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ORG_SLUG` e `NEXT_PUBLIC_HUB_URL` são inlinadas no `next build`: no Dokploy elas vão como **build args** (o `Dockerfile` declara `ARG` + `ENV` no estágio de build), não como env de runtime. Sem o build arg, `src/lib/env.ts` cai no fallback de produção (`https://api.lyxai.com.br`, `https://hub.lyxai.com.br`), nunca no `localhost`.
 
 ## Compatibilidade
 

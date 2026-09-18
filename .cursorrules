@@ -6,15 +6,15 @@
 
 ## TL;DR
 
-**Template Next.js 16 (App Router) + React 19 + Tailwind 4 + shadcn/ui** pra criar novos fronts CRUD que consomem o monolito `lyx-monolith`. Better Auth client (cookie cross-subdomain) já wireado. TanStack Query 5 + React Hook Form + Zod 4 + Sonner. Layout dashboard + login já prontos. Cloná-lo via `npx degit Lyx-Engenharia/lyx-front-template <novo-projeto>` e renomear pacote/rotas pro domínio do novo front.
+**Template Next.js 16 (App Router) + React 19 + Tailwind 4 + shadcn/ui** pra criar novos fronts CRUD que consomem o monolito `lyx-monolith`. Better Auth client (cookie cross-subdomain) já wireado. TanStack Query 5 + React Hook Form + Zod 4 + Sonner. Layout dashboard + gate de acesso já prontos; o login é do Hub (SSO). Cloná-lo via `npx degit Lyx-Engenharia/lyx-front-template <novo-projeto>` e renomear pacote/rotas pro domínio do novo front.
 
 **O que vem pronto:**
 
-- Layout `dashboard` com sidebar/topbar (Lyx Design System v2)
-- `login/page.tsx` integrado com Better Auth
+- Layout `dashboard` com sidebar/topbar (Lyx Design System v2) e gate de acesso: sessão + membership na org `NEXT_PUBLIC_ORG_SLUG` via `GET /me/profile` (`lib/acesso.ts`); sem membership, tela "sem acesso" com link pro Hub
+- **Sem tela de login própria (SSO).** Sem sessão, o dashboard manda pro login do Hub (`https://hub.lyxai.com.br/login?redirect=<url atual>`); a sessão volta pelo cookie `.lyxai.com.br`. Com membership confirmada, o gate ativa a org do sistema na sessão (`ativarOrgDoSistema()`, setActive por slug). Pré-requisito pra funcionar em prod: a origin do front na allowlist de redirect do Hub (`lyx-hub-front/src/lib/login-redirect.ts`) e no `TRUSTED_ORIGINS` do monolito
 - `lib/auth-client.ts` — Better Auth + `organizationClient()`
-- `lib/api.ts` — fetch wrapper com `credentials: 'include'` + Origin header
-- `lib/queries.ts` — exemplos de hooks TanStack Query (CRUD)
+- `lib/api.ts`: fetch wrapper com `credentials: 'include'` (sem `Origin` à mão: no browser é header proibido e o fetch manda o real; server-side, passe no `init`)
+- `lib/example/queries.ts`: EXEMPLO de hooks TanStack Query (CRUD) contra `/items`, rota que não existe no monolito: só mostra o formato, apague ao clonar
 - `components/providers.tsx` — `QueryClientProvider` + `Toaster`
 - 15 componentes shadcn/ui em `src/components/ui/*`
 
@@ -58,7 +58,8 @@ Modelo de branches: **`feat/*` → PR → `develop` → PR → `main` → public
 
 - 🔒 **Server Components não podem importar Better Auth client.** O client é `'use client'`-only. Server Actions chamam o monolito direto via `fetch` com `Origin` header (Better Auth exige Origin no CSRF).
 - 🔒 **Toda chamada `fetch` server-side pra `/api/auth/*` precisa de `Origin: https://<seu-front>.lyxai.com.br`** (ou o origin canônico do front clonado).
-- 🔒 **`NEXT_PUBLIC_*` vars são inlinadas em build.** Sempre use `||` (não `??`) pra cobrir caso `""` quando ARG não é passado no build. Pra URLs canônicas, hardcoded > env var.
+- 🔒 **`NEXT_PUBLIC_*` vars são inlinadas em build.** Sempre use `||` (não `??`) pra cobrir caso `""` quando ARG não é passado no build. Pra URLs canônicas, hardcoded > env var. Todas são resolvidas num lugar só, `src/lib/env.ts` (`valorPublico`: fallback de produção = URL canônica, nunca `localhost`), e no deploy entram como **build args** (`ARG` + `ENV` no estágio de build do `Dockerfile`); `environment:` do container em runtime não muda o bundle.
+- 🔒 **Acesso ao sistema = membership na org do sistema, lida de `GET /me/profile`.** Sessão válida só prova que a pessoa existe na Lyx. Nunca decida acesso com `authClient.organization.list()`: o plugin não filtra `member.deletedAt` (acesso desativado continua na lista). O gate do front é porta de entrada; a autorização de verdade é do monolito.
 - 🔒 **Zod nos forms e nos response handlers.** Resposta do monolito é shape conhecido, mas valide na borda — protege contra drift entre front e back.
 - 🔒 **Sem testes mockando `fetch` ou Better Auth.** Quando precisar testar lógica que consome o monolito, isole a função pura e teste ela. Integração HTTP fica fora de teste.
 
@@ -68,7 +69,7 @@ Modelo de branches: **`feat/*` → PR → `develop` → PR → `main` → public
 - **shadcn/ui** em `src/components/ui/` é gerado pela CLI; não editar manualmente — re-gerar via `npx shadcn add <component>`.
 - **Server Actions** em `src/app/<rota>/actions.ts` com `'use server'`. Validam input com Zod, chamam monolito, retornam DTO tipado.
 - **Hooks customizados** em `src/hooks/`.
-- **Helpers de domínio** em `src/lib/` (ex: `auth-client.ts`, `api.ts`, `queries.ts`).
+- **Helpers de domínio** em `src/lib/` (ex: `auth-client.ts`, `api.ts`, `acesso.ts`). Exemplos que não apontam pra rota real ficam em `src/lib/example/`.
 - **Componentes de feature** em `src/components/` (não em `src/components/ui/`).
 
 ## DON'T

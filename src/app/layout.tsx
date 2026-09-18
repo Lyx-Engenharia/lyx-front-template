@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { BRAND, NOME_DO_SISTEMA } from "@/config/brand";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Meu Sistema",
-  description: "Substitua pela descrição do seu sistema",
+  title: NOME_DO_SISTEMA,
+  description: BRAND.description,
 };
 
 export default function RootLayout({
