@@ -20,6 +20,7 @@ import {
   chaveDoPerfil,
   contaLiberada,
   estadoDoAcesso,
+  falhaDeAtivacao,
   membershipDoSistema,
   mostraSistema,
   sessaoDoSistema,
@@ -81,6 +82,9 @@ function useAcessoAoSistema() {
     orgAtivaId: session?.session.activeOrganizationId,
     ativacaoComErro,
   });
+  // A falha do setActive vale até o acesso voltar a "liberado" por qualquer caminho.
+  const ativacaoSegueComErro = falhaDeAtivacao(ativacaoComErro, estado);
+  if (ativacaoSegueComErro !== ativacaoComErro) setAtivacaoComErro(ativacaoSegueComErro);
 
   // Lembra quem já passou pelo gate e a última sessão vista (atualizar estado
   // no render é o padrão do React pra guardar algo do render anterior, sem

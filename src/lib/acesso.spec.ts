@@ -4,6 +4,7 @@ import {
   chaveDoPerfil,
   contaLiberada,
   estadoDoAcesso,
+  falhaDeAtivacao,
   membershipDoSistema,
   mostraSistema,
   sessaoDoSistema,
@@ -161,6 +162,58 @@ describe("acesso", () => {
       expect(estadoDoAcesso({ ...liberada, membership: null, orgAtivaId: "org-hub" })).toBe(
         "sem-acesso",
       );
+    });
+  });
+
+  describe("falhaDeAtivacao", () => {
+    it("a falha do setActive vale enquanto o acesso não volta a liberado", () => {
+      expect(falhaDeAtivacao(true, "erro")).toBe(true);
+      expect(falhaDeAtivacao(true, "ativando-org")).toBe(true);
+      expect(falhaDeAtivacao(true, "carregando")).toBe(true);
+    });
+
+    it("acesso liberado por qualquer caminho apaga a falha", () => {
+      expect(falhaDeAtivacao(true, "liberado")).toBe(false);
+    });
+
+    it("sem falha, segue sem falha", () => {
+      expect(falhaDeAtivacao(false, "erro")).toBe(false);
+      expect(falhaDeAtivacao(false, "liberado")).toBe(false);
+    });
+
+    // O que o gate do layout faz a cada render com a falha do setActive: decide
+    // o estado com ela e guarda o que sobra dela pro render seguinte.
+    function estadosARender(
+      passos: { orgAtiva: EntradaDoAcesso["orgAtivaId"]; setActiveFalhou?: boolean }[],
+    ): EstadoDoAcesso[] {
+      let comErro = false;
+      return passos.map(({ orgAtiva, setActiveFalhou }) => {
+        if (setActiveFalhou) comErro = true;
+        const estado = estadoDoAcesso({ ...liberada, orgAtivaId: orgAtiva, ativacaoComErro: comErro });
+        comErro = falhaDeAtivacao(comErro, estado);
+        return estado;
+      });
+    }
+
+    it("outra aba ativou a org depois da falha: a próxima troca reativa, sem cair em erro", () => {
+      expect(
+        estadosARender([
+          { orgAtiva: "org-hub" }, // outra aba trocou a org
+          { orgAtiva: "org-hub", setActiveFalhou: true },
+          { orgAtiva: liberada.orgAtivaId }, // outra aba ativou a org deste sistema
+          { orgAtiva: "org-hub" }, // outra aba troca de novo
+        ]),
+      ).toEqual(["ativando-org", "erro", "liberado", "ativando-org"]);
+    });
+
+    it("setActive falhou e o acesso não voltou: segue em erro", () => {
+      expect(
+        estadosARender([
+          { orgAtiva: "org-hub" },
+          { orgAtiva: "org-hub", setActiveFalhou: true },
+          { orgAtiva: "org-hub" },
+        ]),
+      ).toEqual(["ativando-org", "erro", "erro"]);
     });
   });
 

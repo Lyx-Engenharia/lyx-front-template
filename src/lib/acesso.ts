@@ -118,6 +118,16 @@ export function estadoDoAcesso(entrada: EntradaDoAcesso): EstadoDoAcesso {
 }
 
 /**
+ * Se a falha do `setActive` ainda vale depois deste render. Vale até o acesso
+ * voltar a "liberado" por qualquer caminho: "Tentar de novo" ou outra aba que
+ * ativou a org deste sistema. Se ficasse, a próxima troca de org em outra aba
+ * cairia direto em "erro" em vez de reativar a org.
+ */
+export function falhaDeAtivacao(anterior: boolean, estado: EstadoDoAcesso): boolean {
+  return anterior && estado !== "liberado";
+}
+
+/**
  * Conta que já passou pelo gate neste sistema, ou `null`. "liberado" grava a
  * conta. Com a mesma conta na sessão, "carregando" e "ativando-org" (outra aba
  * trocou a org ativa) mantêm. Sem conta nenhuma (`userId` undefined), a sessão
