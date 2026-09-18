@@ -75,10 +75,14 @@ src/
 
 ### 2. Logo + Brand
 
-`src/app/dashboard/layout.tsx` — header da sidebar:
-```tsx
-<span>Meu<span style={{ color: "var(--accent)" }}>Sistema</span></span>
-<span>Tracking de algo</span>
+Nome, tagline e descrição moram num lugar só, `src/config/brand.ts`, lido pela sidebar do dashboard, pela tela de login e pelo `metadata` (`<title>`/description) do `app/layout.tsx`:
+```ts
+export const BRAND = {
+  prefix: "Meu",
+  suffix: "Sistema",
+  tagline: "Sub-título do sistema",
+  // ...
+} as const;
 ```
 
 SVG logo: `src/components/ui/lyx-logo.tsx` ou inline no layout.

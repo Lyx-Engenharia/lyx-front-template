@@ -14,13 +14,12 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SemAcesso } from "@/components/sem-acesso";
+import { BRAND } from "@/config/brand";
 import { buscarPerfil, estadoDoAcesso, membershipDoSistema } from "@/lib/acesso";
 import { authClient, useSession } from "@/lib/auth-client";
 import { HUB_URL, ORG_SLUG } from "@/lib/env";
 
-// ─── Personalizar aqui ─────────────────────────────────────────
-const BRAND = { prefix: "Meu", suffix: "Sistema", tagline: "Sub-título do sistema" };
-
+// ─── Personalizar aqui (nome e tagline ficam em src/config/brand.ts) ───
 const navOperacional = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   // { href: "/dashboard/<modulo>", label: "<Módulo>", icon: <Icon> },

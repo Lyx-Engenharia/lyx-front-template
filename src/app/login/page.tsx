@@ -4,16 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
+import { BRAND } from "@/config/brand";
 import { ativarOrgDoSistema, authClient } from "@/lib/auth-client";
-
-// ─── Personalizar aqui ─────────────────────────────────────────
-const BRAND = {
-  prefix: "Meu",
-  suffix: "Sistema",
-  tagline: "Sub-título do sistema",
-  hero: "Hub de sistemas inteligentes",
-};
-// ───────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
   const router = useRouter();
