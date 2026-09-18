@@ -1,9 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api, ApiError } from "./api";
+import { api, ApiError } from "../api";
 
 // ──────────────────────────────────────────────────────────────
-// Exemplos genéricos. Substitua por hooks do seu domínio.
+// EXEMPLO. Não importe isto em tela de verdade.
+//
+// A rota `/items` NÃO existe no monolito: estes hooks só mostram o formato
+// (TanStack Query + `api()` + toast de erro). No front clonado, escreva os
+// hooks do seu domínio em `src/lib/` ou `src/hooks/`, apontando pras rotas
+// reais do seu módulo, e apague este arquivo.
 // ──────────────────────────────────────────────────────────────
 
 export type Item = {

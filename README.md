@@ -56,7 +56,7 @@ src/
     ├── utils.ts                ← cn()
     ├── api.ts                  ← fetch wrapper credentials
     ├── auth-client.ts          ← Better Auth + organization
-    └── queries.ts              ← TanStack hooks padrão
+    └── example/queries.ts      ← EXEMPLO de hooks TanStack (rota /items não existe)
 ```
 
 ## Customizar para seu sistema
@@ -99,7 +99,7 @@ const navOperacional = [
 
 ### 4. Domínio (substituir Entregas)
 
-Renomear `src/app/dashboard/entregas/` → seu domínio. Atualizar `lib/queries.ts` com types/endpoints.
+Renomear `src/app/dashboard/entregas/` → seu domínio. Escrever os hooks do domínio em `src/lib/` (use `lib/example/queries.ts` só como formato: a rota `/items` não existe no monolito) e apagar `src/lib/example/queries.ts`.
 
 ### 5. Auth
 

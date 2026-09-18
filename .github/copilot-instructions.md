@@ -14,7 +14,7 @@
 - `login/page.tsx` integrado com Better Auth
 - `lib/auth-client.ts` — Better Auth + `organizationClient()`
 - `lib/api.ts` — fetch wrapper com `credentials: 'include'` + Origin header
-- `lib/queries.ts` — exemplos de hooks TanStack Query (CRUD)
+- `lib/example/queries.ts`: EXEMPLO de hooks TanStack Query (CRUD) contra `/items`, rota que não existe no monolito: só mostra o formato, apague ao clonar
 - `components/providers.tsx` — `QueryClientProvider` + `Toaster`
 - 15 componentes shadcn/ui em `src/components/ui/*`
 
@@ -69,7 +69,7 @@ Modelo de branches: **`feat/*` → PR → `develop` → PR → `main` → public
 - **shadcn/ui** em `src/components/ui/` é gerado pela CLI; não editar manualmente — re-gerar via `npx shadcn add <component>`.
 - **Server Actions** em `src/app/<rota>/actions.ts` com `'use server'`. Validam input com Zod, chamam monolito, retornam DTO tipado.
 - **Hooks customizados** em `src/hooks/`.
-- **Helpers de domínio** em `src/lib/` (ex: `auth-client.ts`, `api.ts`, `queries.ts`).
+- **Helpers de domínio** em `src/lib/` (ex: `auth-client.ts`, `api.ts`, `acesso.ts`). Exemplos que não apontam pra rota real ficam em `src/lib/example/`.
 - **Componentes de feature** em `src/components/` (não em `src/components/ui/`).
 
 ## DON'T
