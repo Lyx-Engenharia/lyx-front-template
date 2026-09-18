@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+import { API_URL } from "./env";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {

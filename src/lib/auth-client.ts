@@ -1,9 +1,9 @@
 import { createAuthClient } from "better-auth/react";
 import { organizationClient } from "better-auth/client/plugins";
-import { ORG_SLUG } from "./env";
+import { API_URL, ORG_SLUG } from "./env";
 
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000",
+  baseURL: API_URL,
   plugins: [organizationClient()],
 });
 

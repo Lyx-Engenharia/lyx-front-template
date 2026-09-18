@@ -18,7 +18,12 @@ npm install @lyxai/sistema-admin
 "use client";
 import { SistemaAdminPanel, ChangePasswordCard } from "@lyxai/sistema-admin";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "https://hub.lyxai.com.br";
+// `||` e não `??`: NEXT_PUBLIC_* sem build arg chega como "" e o `??` deixaria
+// passar. Fallback de prod é a URL canônica do monolito. No lyx-front-template
+// isto já vem pronto: importe `API_URL` de `@/lib/env`.
+const API =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "production" ? "https://api.lyxai.com.br" : "http://localhost:3000");
 
 export default function ConfiguracoesPage() {
   return (
@@ -33,7 +38,7 @@ export default function ConfiguracoesPage() {
 }
 ```
 
-- `apiUrl`: base do monolito, **sem barra final** e **sem `/api`** (ex: `https://hub.lyxai.com.br`).
+- `apiUrl`: base do monolito, **sem barra final** e **sem `/api`** (ex: `https://api.lyxai.com.br`).
 - `sistemaSlug`: o slug do sistema deste front (`contratos`, `credito`, ...).
 - `accent` (opcional): cor de destaque. Default teal Lyx.
 

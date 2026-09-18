@@ -134,6 +134,8 @@ docker compose up --build
 
 `next.config.ts` configurado com `output: "standalone"` para Docker minimal.
 
+`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ORG_SLUG` e `NEXT_PUBLIC_HUB_URL` são inlinadas no `next build`: no Dokploy elas vão como **build args** (o `Dockerfile` declara `ARG` + `ENV` no estágio de build), não como env de runtime. Sem o build arg, `src/lib/env.ts` cai no fallback de produção (`https://api.lyxai.com.br`, `https://hub.lyxai.com.br`), nunca no `localhost`.
+
 ## Compatibilidade
 
 - Node ≥ 20.18
