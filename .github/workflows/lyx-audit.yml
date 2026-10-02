@@ -61,7 +61,12 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 25, e não 15 (02/10/2026): no lyx-revendas-front, só o `npm run test:coverage`
+    # já passava de 12 min (436 arquivos, 4472 testes, ~740 s), e o job inteiro
+    # batia os 15 com a suíte toda verde. O cancelamento aparecia como "audit
+    # cancelled" e travava a PR até alguém pedir rerun. A folga é para a suíte
+    # crescer: travamento de verdade continua parado pelo teto.
+    timeout-minutes: 25
     env:
       NEXT_PUBLIC_API_URL: ${{ inputs.next-public-api-url }}
       AUDIT_LINES_MIN: ${{ inputs.coverage-lines }}
