@@ -53,6 +53,19 @@ on:
         description: 'Pular dependency-cruiser (fronts simples)'
         type: boolean
         default: false
+      timeout-minutes:
+        description: >-
+          Teto do job em minutos. Regra da org (05/10/2026): max(25, 2x o p95
+          medido do job), nunca abaixo de 20. Default 30 = 2x o p95 do consumidor
+          mais lento medido (revendas, ~15 min em 14 dias).
+        type: number
+        default: 30
+      runs-on:
+        description: >-
+          Runner do job. Default ubuntu-latest (2 vCPU em repo privado). Front com
+          suíte grande pode pedir 'ubuntu-4core' (runner da org, só repo privado).
+        type: string
+        default: 'ubuntu-latest'
 
 permissions:
   pull-requests: write
@@ -60,8 +73,8 @@ permissions:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     env:
       NEXT_PUBLIC_API_URL: ${{ inputs.next-public-api-url }}
       AUDIT_LINES_MIN: ${{ inputs.coverage-lines }}
@@ -83,8 +96,20 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: 'npm'
 
-      # 4. Install deps do repo consumidor
-      - run: npm install --no-audit --no-fund
+      # 4. Install deps do repo consumidor. `npm ci` quando há lockfile: instala
+      # exato o lock, sem resolver árvore (mais rápido e reproduzível). Lock fora
+      # de sincronia com o package.json faz o `npm ci` recusar (EUSAGE); aí cai
+      # no `npm install` com aviso, para não derrubar o CI de 25 repos de uma vez.
+      - name: Install deps
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund || {
+              echo "::warning::npm ci recusou o package-lock.json (fora de sincronia com o package.json?). Caindo no npm install. Rode 'npm install' localmente e commite o lock."
+              npm install --no-audit --no-fund
+            }
+          else
+            npm install --no-audit --no-fund
+          fi
 
       # 5. Lint
       - name: Lint
@@ -104,10 +129,16 @@ jobs:
       # segundo 25 pagava a suíte inteira mesmo assim (runs de failure duravam
       # o mesmo que os verdes). O dev continua recebendo lint+typecheck no
       # comment; a linha de teste sai como "não rodou".
+      #
+      # `--maxWorkers=$(nproc)`: o default do Vitest 4 fora de watch é CPUs - 1,
+      # o que no ubuntu-latest de repo privado (2 vCPU) dá UM worker só: a suíte
+      # rodava em série com metade da máquina parada. Medido em revendas
+      # (443 arquivos, 4539 testes): 13 de 100 jobs cancelados no teto de 15 min
+      # nos 14 dias até 05/10, com o passo de testes em ~11 min.
       - name: Tests + coverage
         id: tests
         if: ${{ steps.typecheck.outcome == 'success' }}
-        run: npm run test:coverage
+        run: npm run test:coverage -- --maxWorkers=$(nproc)
         continue-on-error: true
 
       # 8. Coverage gate — bin do pacote publicado @lyxai/front-audit.
