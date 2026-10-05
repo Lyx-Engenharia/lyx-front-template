@@ -130,15 +130,16 @@ jobs:
       # o mesmo que os verdes). O dev continua recebendo lint+typecheck no
       # comment; a linha de teste sai como "não rodou".
       #
-      # `--maxWorkers=$(nproc)`: o default do Vitest 4 fora de watch é CPUs - 1,
-      # o que no ubuntu-latest de repo privado (2 vCPU) dá UM worker só: a suíte
-      # rodava em série com metade da máquina parada. Medido em revendas
-      # (443 arquivos, 4539 testes): 13 de 100 jobs cancelados no teto de 15 min
-      # nos 14 dias até 05/10, com o passo de testes em ~11 min.
+      # Paralelismo: NÃO passar --maxWorkers aqui. Medido em 05/10/2026 no
+      # revendas (443 arquivos): com 2 workers no ubuntu-latest (2 vCPU) o passo
+      # levou 11,6 min, contra ~11,4 com o default (1 worker). A soma de
+      # environment+setup+import+tests dobrou: os 2 vCPU já estavam saturados.
+      # Suíte grande acelera reduzindo trabalho por arquivo (ex.: happy-dom no
+      # lugar de jsdom) ou com mais núcleos (input `runs-on: ubuntu-4core`).
       - name: Tests + coverage
         id: tests
         if: ${{ steps.typecheck.outcome == 'success' }}
-        run: npm run test:coverage -- --maxWorkers=$(nproc)
+        run: npm run test:coverage
         continue-on-error: true
 
       # 8. Coverage gate — bin do pacote publicado @lyxai/front-audit.
