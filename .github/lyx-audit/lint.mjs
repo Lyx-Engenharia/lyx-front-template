@@ -4,7 +4,13 @@
 // Um erro é identificado por (arquivo, regra, mensagem com números trocados por
 // #). Linha e coluna ficam de fora porque mudam com qualquer edição acima do
 // erro. A comparação é por quantidade: 1 "Arrow function has too many lines" na
-// base e 3 no head são 2 erros novos.
+// base e 3 no head são 2 erros novos. Por desenho, piorar um erro que já existe
+// não conta (a mesma função passar de complexidade 13 para 40): a catraca barra
+// erro novo, não o tamanho do antigo.
+//
+// Quando a PR mexe nas dependências, a base é lintada com as dependências dela
+// e a mensagem de uma regra pode mudar de texto entre versões: aí o erro é
+// (arquivo, regra), contado por quantidade (porRegra).
 import { isAbsolute, relative, sep } from 'node:path';
 import { mapaDeRenomeados } from './git.mjs';
 
@@ -54,9 +60,10 @@ export function errosDoEslint(resultados, raiz) {
   return erros;
 }
 
-const chave = (e) => `${e.arquivo}\u0000${e.regra}\u0000${e.assinatura}`;
+const chaveDaMensagem = (e) => `${e.arquivo}\u0000${e.regra}\u0000${e.assinatura}`;
+const chaveDaRegra = (e) => `${e.arquivo}\u0000${e.regra}`;
 
-function agrupar(erros) {
+function agrupar(erros, chave) {
   const grupos = new Map();
   for (const e of erros) {
     const k = chave(e);
@@ -71,12 +78,14 @@ function agrupar(erros) {
  * Compara os erros do head com os da base. `alterados` traz os renames da PR:
  * o erro do arquivo renomeado é comparado no caminho novo. Base null = base
  * indisponível, e aí todo erro do head conta (não afrouxa sem medir).
+ * porRegra: compara por (arquivo, regra), sem a mensagem.
  */
-export function compararErros(errosHead, errosBase, { alterados = null } = {}) {
+export function compararErros(errosHead, errosBase, { alterados = null, porRegra = false } = {}) {
   const renomeados = mapaDeRenomeados(alterados);
   const base = (errosBase ?? []).map((e) => ({ ...e, arquivo: renomeados.get(e.arquivo) ?? e.arquivo }));
-  const naBase = agrupar(base);
-  const noHead = agrupar(errosHead);
+  const chave = porRegra ? chaveDaRegra : chaveDaMensagem;
+  const naBase = agrupar(base, chave);
+  const noHead = agrupar(errosHead, chave);
   const novos = [];
   let existentes = 0;
   for (const [k, g] of noHead) {
@@ -97,6 +106,7 @@ export function compararErros(errosHead, errosBase, { alterados = null } = {}) {
   novos.sort((a, b) => a.arquivo.localeCompare(b.arquivo) || a.regra.localeCompare(b.regra) || a.linhas[0] - b.linhas[0]);
   return {
     baseDisponivel: errosBase !== null && errosBase !== undefined,
+    comparacao: porRegra ? 'regra' : 'mensagem',
     totalHead: errosHead.length,
     totalBase: base.length,
     existentes,

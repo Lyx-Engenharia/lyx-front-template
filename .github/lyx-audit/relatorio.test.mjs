@@ -38,6 +38,7 @@ const COBERTURA_RUIM = {
   passou: false,
   baseDisponivel: true,
   tolerancia: 0.1,
+  porArquivo: 'error',
   limites: { linhas: 75, branches: 40 },
   global: {
     linhas: { head: 14.2969, base: 14.5707, minimo: 75, status: 'queda', queda: 0.2738 },
@@ -171,6 +172,58 @@ describe('relatorio', () => {
     it('arquivo de código fora da cobertura é explicado pelo include e exclude do coverage', () => {
       const md = relatorio();
       assert.match(md, /1 arquivo de código alterado fica fora da cobertura \(fora do include ou no exclude do coverage no vitest\.config: specs, páginas, tipos, ui, scripts\)\./);
+    });
+
+    it('regra por arquivo em warn (o padrão): AVISO na tabela, a lista diz que não barra, e a dívida por arquivo não fala em cobrança', () => {
+      const md = relatorio({ cobertura: { ...COBERTURA_RUIM, porArquivo: 'warn', dividaPorArquivo: { abaixo: 133, total: 163 } } });
+      assert.match(md, /\| Arquivos que a PR cria ou altera \| AVISO \| 1 de 2 abaixo de 75% lines ou 40% branches \(aviso, não barra: coverage-files-gate é warn\) \|/);
+      assert.match(md, /#### Arquivos abaixo do mínimo \(aviso, não barra esta PR\)/);
+      assert.match(md, /133 de 163\. Quando uma PR cria ou altera um deles, ele aparece como aviso no gate \(coverage-files-gate: warn\)\./);
+      assert.doesNotMatch(md, /Cada um passa a ser cobrado/);
+    });
+
+    it('regra por arquivo em warn e todos no mínimo: OK, sem aviso', () => {
+      const arquivos = [{ arquivo: 'src/lib/soma.ts', linhas: 100, branches: 100, linhasOk: true, branchesOk: true, passou: true }];
+      const md = relatorio({ cobertura: { ...COBERTURA_RUIM, porArquivo: 'warn', arquivos } });
+      assert.match(md, /\| Arquivos que a PR cria ou altera \| OK \| 1 arquivo, todos com 75% lines e 40% branches ou mais \|/);
+    });
+
+    it('regra por arquivo desligada (off): a linha diz que está desligada, sem lista de arquivos', () => {
+      const md = relatorio({ cobertura: { ...COBERTURA_RUIM, porArquivo: 'off', arquivos: [], foraDaCobertura: [], dividaPorArquivo: { abaixo: 133, total: 163 } } });
+      assert.match(md, /\| Arquivos que a PR cria ou altera \| desligada \| coverage-files-gate: off \|/);
+      assert.ok(!md.includes('#### Arquivos abaixo do mínimo'));
+      assert.match(md, /133 de 163\.\n/);
+      assert.doesNotMatch(md, /Cada um passa a ser cobrado|aparece como aviso/);
+    });
+
+    it('base medida com teste falhando aparece explicada na global', () => {
+      const md = relatorio({
+        cobertura: {
+          ...COBERTURA_RUIM,
+          baseSuiteFalhou: true,
+          global: {
+            linhas: { head: 14.64, base: 14.57, minimo: 75, status: 'base-vermelha', queda: -0.07 },
+            branches: { head: 14.63, base: 14.59, minimo: 40, status: 'base-vermelha', queda: -0.04 },
+          },
+        },
+      });
+      assert.match(
+        md,
+        /\| Cobertura global \(lines\) \| FAIL \| 14,64% \(base 14,57%\): a suíte da base falhou, então a cobertura dela não vale como referência; abaixo de 75% a PR barra \|/,
+      );
+      assert.match(md, /_A suíte da base rodou com teste falhando/);
+    });
+
+    it('PR que mexe nas dependências: o relatório diz que a base usou as dela e que o erro é comparado por arquivo e regra', () => {
+      const md = relatorio({ lint: { ...LINT_COM_NOVOS, comparacao: 'regra', depsDaBase: 'instalado' } });
+      assert.match(md, /_A PR mexe nas dependências \(package\.json, lock, \.npmrc ou pacote local\): o ESLint da base rodou com as dependências da base/);
+      assert.match(md, /comparado por arquivo e regra/);
+    });
+
+    it('catraca da cobertura sem resultado (só o motivo): a linha mostra o motivo, sem quebrar o relatório', () => {
+      const md = relatorio({ cobertura: { passou: false, motivo: 'sem cobertura do head (coverage/lcov.info não existe)' } });
+      assert.match(md, /\| Cobertura \| FAIL \| sem cobertura do head \(coverage\/lcov\.info não existe\) \|/);
+      assert.match(md, /### Dívida do repo inteiro/);
     });
 
     it('lista longa é cortada para o comentário caber no limite do GitHub', () => {

@@ -43,6 +43,15 @@ describe('cobertura', () => {
       const c = resumo('pr-ruim.coverage-summary.json');
       assert.deepEqual(lerResumo(JSON.parse(JSON.stringify(paraResumo(c)))), c);
     });
+
+    it('a marca de suíte vermelha vai junto no resumo e não vira arquivo', () => {
+      const c = resumo('pr-ruim.coverage-summary.json');
+      const json = JSON.parse(JSON.stringify(paraResumo(c, { suiteFalhou: true })));
+      const lido = lerResumo(json);
+      assert.equal(lido.suiteFalhou, true);
+      assert.deepEqual(Object.keys(lido.arquivos).sort(), Object.keys(c.arquivos).sort());
+      assert.equal(lerResumo(paraResumo(c)).suiteFalhou, undefined);
+    });
   });
 
   describe('lerLcov', () => {
@@ -223,6 +232,23 @@ describe('cobertura', () => {
       assert.equal(r.passou, false);
     });
 
+    it('base medida com teste falhando não vale como base: com o head abaixo do mínimo, barra', () => {
+      // Repo limpo (75%) cuja suíte quebrou na worktree da base: mediu 60%. Com
+      // ela valendo como base, o head a 70% entraria na tolerância de 0,1.
+      const base = { ...cobertura(totais(1000, 600)), suiteFalhou: true };
+      const r = avaliarCobertura({ head: cobertura(totais(1000, 700)), base, alterados: soModificados(), limites: LIMITES });
+      assert.equal(r.global.linhas.status, 'base-vermelha');
+      assert.equal(r.baseSuiteFalhou, true);
+      assert.equal(r.passou, false);
+    });
+
+    it('base medida com teste falhando não muda nada quando o head cumpre o mínimo', () => {
+      const base = { ...cobertura(totais(1000, 600)), suiteFalhou: true };
+      const r = avaliarCobertura({ head: cobertura(totais(1000, 800, 10, 5)), base, alterados: soModificados(), limites: LIMITES });
+      assert.equal(r.global.linhas.status, 'ok-limite');
+      assert.equal(r.passou, true);
+    });
+
     it('fora da cobertura lista só arquivo de código (yml, md, json e css não entram)', () => {
       const r = avaliarCobertura({
         head: cobertura(totais(100, 90)),
@@ -231,6 +257,56 @@ describe('cobertura', () => {
         limites: LIMITES,
       });
       assert.deepEqual(r.foraDaCobertura, ['src/app/[id]/page.tsx', 'src/lib/a.spec.ts']);
+    });
+  });
+
+  describe('regra por arquivo (coverage-files-gate)', () => {
+    // Global no mínimo; o único problema é o arquivo antigo que a PR alterou.
+    const head = cobertura(totais(1000, 900, 100, 80), { 'src/antigo.ts': totais(100, 10, 10, 1), 'src/ok.ts': totais(100, 100) });
+    const avaliar = (porArquivo) =>
+      avaliarCobertura({ head, base: null, alterados: soModificados('src/antigo.ts', 'src/ok.ts'), limites: LIMITES, porArquivo });
+
+    it('padrão warn: o arquivo abaixo do mínimo aparece, mas não reprova', () => {
+      const r = avaliarCobertura({ head, base: null, alterados: soModificados('src/antigo.ts', 'src/ok.ts'), limites: LIMITES });
+      assert.equal(r.porArquivo, 'warn');
+      assert.equal(r.passou, true);
+      assert.equal(r.arquivosPassou, false);
+      assert.deepEqual(r.arquivos.filter((a) => !a.passou).map((a) => a.arquivo), ['src/antigo.ts']);
+    });
+
+    it('error: o mesmo arquivo reprova', () => {
+      const r = avaliar('error');
+      assert.equal(r.passou, false);
+      assert.equal(r.arquivosPassou, false);
+    });
+
+    it('off: nem avalia os arquivos', () => {
+      const r = avaliar('off');
+      assert.equal(r.passou, true);
+      assert.deepEqual(r.arquivos, []);
+      assert.deepEqual(r.foraDaCobertura, []);
+    });
+
+    it('warn não afrouxa a global: queda acima de 0,1 ponto continua reprovando', () => {
+      const r = avaliarCobertura({
+        head: cobertura(totais(1000, 100)),
+        base: cobertura(totais(1000, 120)),
+        alterados: soModificados(),
+        limites: LIMITES,
+        porArquivo: 'warn',
+      });
+      assert.equal(r.global.linhas.status, 'queda');
+      assert.equal(r.passou, false);
+    });
+
+    it('sem saber o que a PR mudou: só o modo error reprova por isso', () => {
+      const semAlterados = (porArquivo) => avaliarCobertura({ head, base: null, alterados: null, limites: LIMITES, porArquivo });
+      assert.equal(semAlterados('warn').passou, true);
+      assert.equal(semAlterados('error').passou, false);
+    });
+
+    it('modo desconhecido é erro (não vira warn calado)', () => {
+      assert.throws(() => avaliar('aviso'), /coverage-files-gate/);
     });
   });
 

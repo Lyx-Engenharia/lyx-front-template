@@ -122,6 +122,28 @@ describe('lint', () => {
       assert.equal(r.novos.length, 1);
     });
 
+    it('por regra (PR que mexe nas dependências): mensagem reescrita entre versões não vira erro novo', () => {
+      const head = [erro('src/a.ts', 'sonarjs/cognitive-complexity', 'Refactor this function to reduce its Cognitive Complexity from 31 to the 15 allowed.')];
+      const base = [erro('src/a.ts', 'sonarjs/cognitive-complexity', 'Reduce the Cognitive Complexity of this function from 31 to 15.')];
+      assert.equal(compararErros(head, base).novos.length, 1, 'por mensagem, o texto novo conta como erro novo');
+      const r = compararErros(head, base, { porRegra: true });
+      assert.deepEqual(r.novos, []);
+      assert.equal(r.existentes, 1);
+      assert.equal(r.comparacao, 'regra');
+    });
+
+    it('por regra: regra que a versão nova liga continua sendo erro novo, e a contagem por arquivo e regra vale', () => {
+      const r = compararErros(
+        [erro('src/a.ts', 'no-console', 'Unexpected console statement.'), erro('src/a.ts', 'complexity', 'x', 3), erro('src/a.ts', 'complexity', 'y', 9)],
+        [erro('src/a.ts', 'complexity', 'z', 3)],
+        { porRegra: true },
+      );
+      assert.deepEqual(r.novos.map((g) => [g.arquivo, g.regra, g.novos]), [
+        ['src/a.ts', 'complexity', 1],
+        ['src/a.ts', 'no-console', 1],
+      ]);
+    });
+
     it('sem a base (indisponível), todo erro do head conta', () => {
       const r = compararErros([erro('src/a.ts', 'complexity', 'x')], null);
       assert.equal(r.baseDisponivel, false);

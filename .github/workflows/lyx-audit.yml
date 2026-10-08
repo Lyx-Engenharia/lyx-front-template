@@ -30,21 +30,29 @@ name: Lyx Audit (reusable)
 # do merge que o checkout do pull_request entrega):
 #   - lint: erro novo conta, mesmo em arquivo antigo. Erro que já existia na
 #     base não conta. Identidade do erro: (arquivo, regra, mensagem com os
-#     números trocados por #), comparada por quantidade.
+#     números trocados por #), comparada por quantidade. Piorar um erro que já
+#     existe (complexidade 13 que vira 40 na mesma função) não conta.
+#     PR que mexe nas dependências (package.json, lock, .npmrc ou pacote local
+#     ligado no node_modules): a base é lintada com as dependências dela (npm ci
+#     na base) e o erro vira (arquivo, regra), porque a mensagem pode mudar de
+#     texto entre versões. Regra que um upgrade liga conta como erro novo.
 #   - cobertura global (lines e branches): head no mínimo passa, como antes;
 #     base no mínimo e head abaixo barra, como antes; base já abaixo do mínimo
-#     (dívida): o head não pode cair mais de 0,1 ponto. Arquivo que a PR apaga
-#     sai da conta da base.
-#   - cada arquivo com lógica que a PR cria ou altera (os que aparecem no lcov,
-#     ou seja, os mesmos excluídos de hoje) precisa de coverage-lines nas linhas
-#     e coverage-branches nos branches.
+#     (dívida): o head não pode cair mais de 0,1 ponto (por PR: acumula). Arquivo
+#     que a PR apaga sai da conta da base. Base medida com teste falhando não
+#     vale como referência: com o head abaixo do mínimo, barra.
+#   - por arquivo (input `coverage-files-gate`, padrão warn): cada arquivo com
+#     lógica que a PR cria ou altera (os que aparecem no lcov, ou seja, os mesmos
+#     excluídos de hoje) precisa de coverage-lines nas linhas e coverage-branches
+#     nos branches. warn mostra no comment e não barra; error barra; off desliga.
 # A dívida do repo inteiro continua no comment, como informativa. Typecheck,
 # testes e ciclos de import seguem absolutos. ratchet: false volta ao gate
 # absoluto do repo inteiro.
 #
 # Custo: repo sem dívida não paga nada a mais (lint verde pula a catraca do lint;
 # cobertura no mínimo não precisa da base). Com dívida: o lint roda na base só
-# nos arquivos com erro no head (segundos), e a cobertura da base vem do cache
+# nos arquivos com erro no head (segundos; mais um npm ci na base, com o cache do
+# npm, quando a PR mexe nas dependências), e a cobertura da base vem do cache
 # (da main, quando o consumidor também dispara este workflow no push da main, ou
 # de uma rodada anterior da mesma PR). Sem cache, a suíte roda uma vez na base:
 # uma suíte a mais por base em cada PR (no taskbuilder-front, ~35 s).
@@ -96,11 +104,18 @@ on:
           Catraca (padrão true): na PR, lint e cobertura barram só o que a PR
           piora em relação à base (erro de lint novo; cobertura global que sai
           do mínimo ou, se a base já estava abaixo dele, que cai mais de 0,1
-          ponto; arquivo com lógica que a PR cria ou altera abaixo de
-          coverage-lines/coverage-branches). A dívida antiga fica no relatório
-          como informativa. false = gate absoluto do repo inteiro, o de antes.
+          ponto). A dívida antiga fica no relatório como informativa. false =
+          gate absoluto do repo inteiro, o de antes.
         type: boolean
         default: true
+      coverage-files-gate:
+        description: >-
+          Com a catraca: cobertura por arquivo. Cada arquivo com lógica que a
+          PR cria ou altera precisa de coverage-lines e coverage-branches.
+          'warn' (padrão) mostra no comentário e não barra; 'error' barra;
+          'off' desliga. Ligue 'error' repo a repo.
+        type: string
+        default: 'warn'
 
 permissions:
   pull-requests: write
@@ -115,6 +130,7 @@ jobs:
       AUDIT_LINES_MIN: ${{ inputs.coverage-lines }}
       AUDIT_BRANCHES_MIN: ${{ inputs.coverage-branches }}
       AUDIT_GATE_MODE: ${{ inputs.gate-mode }}
+      AUDIT_COVERAGE_FILES_GATE: ${{ inputs.coverage-files-gate }}
     steps:
       # 1. Checkout do repo CONSUMIDOR. fetch-depth 2: no pull_request o HEAD é o
       # merge da PR na base e o HEAD^1 é a base exata que a catraca compara.
@@ -268,7 +284,10 @@ jobs:
 
       # Catraca do lint: só quando o lint do repo inteiro falhou (lint verde =
       # nenhum erro, nada a comparar). Na base roda só nos arquivos com erro no
-      # head, numa worktree fora do workspace, com o node_modules do head.
+      # head, numa worktree fora do workspace. Dependências (--deps auto): as do
+      # head quando a PR não mexe nelas; quando mexe (package.json, lock, .npmrc
+      # ou pacote local), npm ci na base, para regra que um upgrade liga não
+      # aparecer também na base e passar como erro antigo.
       - name: 'Catraca: lint (erros novos)'
         id: catraca_lint
         if: ${{ always() && steps.catraca.outputs.ativa == 'true' && steps.lint.outcome == 'failure' }}
@@ -278,8 +297,8 @@ jobs:
         run: |
           base_dir="$RUNNER_TEMP/lyx-audit/base"
           if [ -n "$BASE_SHA" ]; then
-            node "$LYX_AUDIT" preparar-base --sha "$BASE_SHA" --dir "$base_dir" --deps link \
-              || echo "::warning::Catraca: a worktree da base não montou. Todo erro de lint conta como novo."
+            node "$LYX_AUDIT" preparar-base --sha "$BASE_SHA" --dir "$base_dir" --deps auto \
+              || echo "::warning::Catraca: a base não montou (worktree ou dependências). Todo erro de lint conta como novo."
           fi
           node "$LYX_AUDIT" lint --eslint audit/eslint.json --alterados "$RUNNER_TEMP/lyx-audit/alterados.z" \
             --base-dir "$base_dir" --saida audit/catraca-lint.json
@@ -302,6 +321,8 @@ jobs:
           path: ${{ runner.temp }}/lyx-audit/cobertura-base/coverage-summary.json
           key: lyx-audit-cobertura-v1-${{ steps.base.outputs.sha }}
 
+      # Suíte vermelha na base: o resumo sai com a marca (não vale como base) e o
+      # passo termina em falha, então o cache abaixo não guarda essa base.
       - name: 'Catraca: suíte na base (sem cache)'
         id: suite_base
         if: ${{ always() && steps.precisa.outputs.precisa == 'true' && steps.cache_base.outputs.cache-hit != 'true' }}

@@ -75,6 +75,82 @@ describe('catraca (CLI)', () => {
       }
     });
 
+    describe('regra por arquivo (AUDIT_COVERAGE_FILES_GATE, o input coverage-files-gate)', () => {
+      // Global a 90%, e a PR altera um arquivo antigo a 10%: só a regra por arquivo reclama.
+      const LCOV = 'SF:src/antigo.ts\nLF:10\nLH:1\nBRF:0\nBRH:0\nend_of_record\nSF:src/resto.ts\nLF:90\nLH:89\nBRF:0\nBRH:0\nend_of_record\n';
+
+      function rodar(modo) {
+        const pasta = pastaTemporaria('cob');
+        try {
+          writeFileSync(join(pasta, 'lcov.info'), LCOV);
+          writeFileSync(join(pasta, 'alterados.z'), 'M\0src/antigo.ts\0');
+          const env = modo === undefined ? {} : { AUDIT_COVERAGE_FILES_GATE: modo };
+          const saida = join(pasta, 'c.json');
+          const r = catraca(pasta, ['cobertura', '--lcov', join(pasta, 'lcov.info'), '--alterados', join(pasta, 'alterados.z'), '--saida', saida], env);
+          return { ...r, json: existsSync(saida) ? JSON.parse(readFileSync(saida, 'utf8')) : null };
+        } finally {
+          rmSync(pasta, { recursive: true, force: true });
+        }
+      }
+
+      it('sem o input (padrão warn): sai 0 e o arquivo abaixo do mínimo fica no JSON para o relatório', () => {
+        const r = rodar(undefined);
+        assert.equal(r.status, 0, r.stderr);
+        assert.equal(r.json.porArquivo, 'warn');
+        assert.deepEqual(r.json.arquivos.map((a) => [a.arquivo, a.passou]), [['src/antigo.ts', false]]);
+      });
+
+      it('vazio também é o padrão (o GitHub passa string vazia quando o input não existe)', () => {
+        const r = rodar('');
+        assert.equal(r.status, 0, r.stderr);
+        assert.equal(r.json.porArquivo, 'warn');
+      });
+
+      it('error: sai 1', () => {
+        const r = rodar('error');
+        assert.equal(r.status, 1);
+        assert.equal(r.json.passou, false);
+      });
+
+      it('off: sai 0 sem avaliar arquivo', () => {
+        const r = rodar('off');
+        assert.equal(r.status, 0, r.stderr);
+        assert.deepEqual(r.json.arquivos, []);
+      });
+
+      it('valor inválido: sai 1 e grava o motivo para o relatório (off, warn ou error)', () => {
+        const r = rodar('aviso');
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /AUDIT_COVERAGE_FILES_GATE inválido \(off, warn ou error\): "aviso"/);
+        assert.match(r.json?.motivo ?? '', /AUDIT_COVERAGE_FILES_GATE inválido/);
+      });
+    });
+
+    it('base medida com teste falhando: barra o head abaixo do mínimo, mesmo caindo menos de 0,1', () => {
+      const pasta = pastaTemporaria('cob');
+      try {
+        // A base "vermelha" mediu 14,57% (o mesmo número da main do taskbuilder), com a marca da suíte.
+        const base = JSON.parse(readFileSync(join(FIX, 'main.coverage-summary.json'), 'utf8'));
+        base['#lyx-audit'] = { suiteDaBase: 'falhou' };
+        writeFileSync(join(pasta, 'base.json'), JSON.stringify(base));
+        const saida = join(pasta, 'c.json');
+        const r = catraca(pasta, [
+          'cobertura',
+          '--resumo-head', join(FIX, 'pr-boa.coverage-summary.json'),
+          '--base-resumo', join(pasta, 'base.json'),
+          '--raiz', RAIZ_TB,
+          '--alterados', join(FIX, 'pr-boa.alterados.z'),
+          '--saida', saida,
+        ]);
+        assert.equal(r.status, 1);
+        const json = JSON.parse(readFileSync(saida, 'utf8'));
+        assert.equal(json.global.linhas.status, 'base-vermelha');
+        assert.equal(json.baseSuiteFalhou, true);
+      } finally {
+        rmSync(pasta, { recursive: true, force: true });
+      }
+    });
+
     it('base sem arquivo de cobertura: barra se o head está abaixo do mínimo', () => {
       const pasta = pastaTemporaria('cob');
       try {
@@ -153,7 +229,7 @@ describe('catraca (CLI)', () => {
       }
     });
 
-    it('suíte da base com teste falhando ainda gera a cobertura (reportOnFailure): a PR que conserta a main não fica presa', () => {
+    it('suíte da base com teste falhando: grava a cobertura com a marca de suíte vermelha e sai 1 (o cache não guarda essa base)', () => {
       const pasta = pastaTemporaria('suite');
       try {
         // Faz o papel do vitest: com teste falhando, só grava o lcov se receber --coverage.reportOnFailure.
@@ -165,8 +241,10 @@ describe('catraca (CLI)', () => {
         escrever(pasta, { 'gera.cjs': gera, 'package.json': JSON.stringify({ scripts: { 'test:coverage': 'node gera.cjs' } }) });
         const resumo = join(pasta, 'saida', 'coverage-summary.json');
         const r = catraca(pasta, ['cobertura-base', '--dir', pasta, '--saida', resumo]);
-        assert.equal(r.status, 0, r.stderr);
-        assert.deepEqual(JSON.parse(readFileSync(resumo, 'utf8')).total.lines, { total: 4, covered: 2, skipped: 0, pct: 50 });
+        assert.equal(r.status, 1, 'saída 1: o passo do cache só salva base com a suíte verde');
+        const json = JSON.parse(readFileSync(resumo, 'utf8'));
+        assert.deepEqual(json.total.lines, { total: 4, covered: 2, skipped: 0, pct: 50 });
+        assert.deepEqual(json['#lyx-audit'], { suiteDaBase: 'falhou' });
         assert.match(r.stderr, /suíte da base falhou/);
       } finally {
         rmSync(pasta, { recursive: true, force: true });

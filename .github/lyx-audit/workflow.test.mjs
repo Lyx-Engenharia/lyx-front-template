@@ -1,17 +1,36 @@
-// Testes do lyx-audit.yml: o passo que decide o status do job e a ligação entre
-// o YAML e a CLI da catraca. LYX_AUDIT_WORKFLOW troca o arquivo testado (útil
-// para rodar contra a versão da main e ver o que muda).
+// Testes do lyx-audit.yml: o passo que decide o status do job, a ligação entre o
+// YAML e a CLI da catraca e os passos do lint rodando de verdade.
+// LYX_AUDIT_WORKFLOW troca o arquivo testado (útil para rodar contra a versão da
+// main e ver o que muda).
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMANDOS, OPCOES } from './catraca.mjs';
-import { passosDoWorkflow } from './apoio-teste.mjs';
+import { GIT_ENV, escrever, frontComPluginDeLint, npmOffline, pacoteDoFront, passosDoWorkflow, repoComPrMergeada } from './apoio-teste.mjs';
 
 const WORKFLOW = process.env.LYX_AUDIT_WORKFLOW ?? fileURLToPath(new URL('../workflows/lyx-audit.yml', import.meta.url));
 const TEXTO = readFileSync(WORKFLOW, 'utf8');
 const PASSOS = passosDoWorkflow(TEXTO);
+const CLI = fileURLToPath(new URL('./catraca.mjs', import.meta.url));
+
+// ESLint de verdade do template (o npm ci do catraca-tests traz). Sem ele, os testes de ponta a ponta do lint são pulados.
+function binDoEslint() {
+  try {
+    return join(dirname(createRequire(import.meta.url).resolve('eslint/package.json')), 'bin', 'eslint.js');
+  } catch {
+    return null;
+  }
+}
+
+/** Roda o `run:` de um passo como o GitHub roda (bash --noprofile --norc -eo pipefail). */
+function rodarPasso(nome, { cwd, env }) {
+  const r = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', scriptDoPasso(nome)], { cwd, env, encoding: 'utf8' });
+  return { status: r.status, saida: r.stdout + r.stderr };
+}
 
 function scriptDoPasso(nome) {
   const passo = PASSOS.find((p) => p.nome === nome);
@@ -103,6 +122,77 @@ describe('lyx-audit.yml', () => {
     it('gate-mode warn: verde mesmo com a catraca barrando', () => {
       const r = avaliar({ ...PR, GATE_MODE: 'warn', LINT: 'failure', COVERAGE: 'success', CATRACA_ATIVA: 'true', CATRACA_LINT: 'failure', CATRACA_COBERTURA: 'failure' });
       assert.equal(r.status, 0, r.saida);
+    });
+  });
+
+  describe('catraca do lint de ponta a ponta: os passos do YAML com git, npm e ESLint de verdade', () => {
+    const eslint = binDoEslint();
+    const pular = !eslint && 'eslint não instalado';
+    const CODIGO_COM_CONSOLE = { 'src/a.js': "export const proibido = 1;\nconsole.log('oi');\n" };
+
+    // O caminho do pull_request: npm ci no head, base da PR, ESLint JSON e a catraca do lint.
+    function rodarCatracaDoLint({ base, pr }) {
+      const repo = repoComPrMergeada({
+        base: (raiz) => {
+          escrever(raiz, base);
+          npmOffline(raiz, 'install', '--package-lock-only');
+        },
+        pr: (raiz) => {
+          pr(raiz);
+          npmOffline(raiz, 'install', '--package-lock-only');
+        },
+      });
+      try {
+        const temp = join(repo.pasta, 'runner-temp');
+        mkdirSync(temp);
+        const saidaGh = join(temp, 'github-output');
+        writeFileSync(saidaGh, '');
+        const env = { ...GIT_ENV, LYX_AUDIT: CLI, RUNNER_TEMP: temp, GITHUB_OUTPUT: saidaGh };
+        npmOffline(repo.clone, 'ci');
+        assert.equal(rodarPasso('Catraca: base da PR', { cwd: repo.clone, env }).status, 0);
+        const sha = /^sha=(.*)$/m.exec(readFileSync(saidaGh, 'utf8'))?.[1];
+        assert.equal(sha, repo.shaBase);
+        rodarPasso('Prepare audit dir', { cwd: repo.clone, env });
+        assert.equal(rodarPasso('ESLint JSON', { cwd: repo.clone, env }).status, 1, 'o head tem erro de lint');
+        const r = rodarPasso('Catraca: lint (erros novos)', { cwd: repo.clone, env: { ...env, BASE_SHA: sha } });
+        const json = JSON.parse(readFileSync(join(repo.clone, 'audit/catraca-lint.json'), 'utf8'));
+        return { ...r, json };
+      } finally {
+        repo.limpar();
+      }
+    }
+
+    it('PR que só sobe o plugin e ele liga regra nova: o erro conta como novo (a base é lintada com as dependências dela)', { skip: pular }, () => {
+      const r = rodarCatracaDoLint({
+        base: frontComPluginDeLint({ binDoEslint: eslint, versao: 1, codigo: CODIGO_COM_CONSOLE }),
+        pr: (raiz) => escrever(raiz, { 'package.json': pacoteDoFront(2) }),
+      });
+      assert.equal(r.status, 1, r.saida);
+      assert.deepEqual(r.json.novos.map((g) => [g.arquivo, g.regra, g.novos]), [['src/a.js', 'no-console', 1]]);
+      assert.equal(r.json.existentes, 1, 'fake/proibido já existia na base, com o texto da 1.0.0');
+      assert.equal(r.json.depsDaBase, 'instalado');
+      assert.equal(r.json.comparacao, 'regra');
+    });
+
+    it('PR que só sobe o plugin e ele reescreve a mensagem: o erro antigo continua antigo', { skip: pular }, () => {
+      const r = rodarCatracaDoLint({
+        base: frontComPluginDeLint({ binDoEslint: eslint, versao: 1, codigo: { 'src/a.js': 'export const proibido = 1;\n' } }),
+        pr: (raiz) => escrever(raiz, { 'package.json': pacoteDoFront(2) }),
+      });
+      assert.equal(r.status, 0, r.saida);
+      assert.deepEqual(r.json.novos, []);
+      assert.equal(r.json.existentes, 1);
+    });
+
+    it('PR que não mexe nas dependências: a base usa o node_modules do head (sem npm ci) e só o erro novo conta', { skip: pular }, () => {
+      const r = rodarCatracaDoLint({
+        base: frontComPluginDeLint({ binDoEslint: eslint, versao: 1, codigo: CODIGO_COM_CONSOLE }),
+        pr: (raiz) => escrever(raiz, { 'src/b.js': 'export const proibido = 2;\n' }),
+      });
+      assert.equal(r.status, 1, r.saida);
+      assert.deepEqual(r.json.novos.map((g) => [g.arquivo, g.regra, g.novos]), [['src/b.js', 'fake/proibido', 1]]);
+      assert.equal(r.json.depsDaBase, 'link');
+      assert.equal(r.json.comparacao, 'mensagem');
     });
   });
 

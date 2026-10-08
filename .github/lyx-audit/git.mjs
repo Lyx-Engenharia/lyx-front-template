@@ -4,8 +4,8 @@
 // HEAD^1 é a base exata usada no merge. Com fetch-depth 2 os dois estão no clone,
 // então o diff HEAD^1..HEAD é o que a PR muda, sem precisar de merge-base.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 const VAZIO = () => ({ criados: [], modificados: [], renomeados: [], removidos: [] });
 
@@ -52,10 +52,53 @@ export function mapaDeRenomeados(alterados) {
   return new Map((alterados?.renomeados ?? []).map((r) => [r.de, r.para]));
 }
 
-/** A suíte da base só reinstala dependências quando a PR mexeu nelas. */
-export function precisaInstalarDeps(alterados) {
-  const deps = new Set(['package.json', 'package-lock.json']);
-  return arquivosCriadosOuAlterados(alterados).some((c) => deps.has(c)) || alterados.removidos.some((c) => deps.has(c));
+// Na raiz do repo, o que decide o que o npm instala.
+const ARQUIVOS_DE_DEPS = new Set(['package.json', 'package-lock.json', 'npm-shrinkwrap.json', '.npmrc']);
+
+/**
+ * Pastas do próprio repo que o npm liga no node_modules (workspaces e
+ * dependências `file:`), lidas do package-lock (entradas com `link: true`).
+ * Link para fora do repo fica de fora: a PR não muda o que está lá.
+ */
+export function pacotesLocaisDoLock(conteudo) {
+  let lock;
+  try {
+    lock = JSON.parse(conteudo);
+  } catch {
+    return [];
+  }
+  const pastas = new Set();
+  for (const entrada of Object.values(lock?.packages ?? {})) {
+    if (entrada?.link !== true || typeof entrada.resolved !== 'string') continue;
+    const pasta = entrada.resolved.split('\\').join('/').replace(/^\.\//, '').replace(/\/+$/, '');
+    if (pasta && pasta !== '..' && !pasta.startsWith('../') && !isAbsolute(pasta)) pastas.add(pasta);
+  }
+  return [...pastas].sort();
+}
+
+function pacotesLocais(...raizes) {
+  const pastas = new Set();
+  for (const raiz of raizes) {
+    const lock = join(raiz, 'package-lock.json');
+    if (existsSync(lock)) for (const p of pacotesLocaisDoLock(readFileSync(lock, 'utf8'))) pastas.add(p);
+  }
+  return [...pastas];
+}
+
+/**
+ * A base precisa das próprias dependências quando a PR mexeu no que o npm
+ * instala: package.json, lock ou .npmrc da raiz, ou um pacote local ligado no
+ * node_modules (`locais`, de pacotesLocaisDoLock). Fora disso, o node_modules
+ * do head é o mesmo que a base instalaria.
+ */
+export function precisaInstalarDeps(alterados, locais = []) {
+  const caminhos = [
+    ...alterados.criados,
+    ...alterados.modificados,
+    ...alterados.removidos,
+    ...alterados.renomeados.flatMap((r) => [r.de, r.para]),
+  ];
+  return caminhos.some((c) => ARQUIVOS_DE_DEPS.has(c) || locais.some((p) => c.startsWith(`${p}/`)));
 }
 
 /** Base da PR: HEAD^1 quando HEAD é o commit de merge do pull_request. */
@@ -72,16 +115,18 @@ export function listarAlterados({ cwd, sha, env = process.env }) {
   return rodarGit(cwd, ['diff', '--name-status', '-z', '-M', sha, 'HEAD'], env);
 }
 
+/**
+ * npm ci na base. --prefer-offline usa o cache do npm que o setup-node restaurou
+ * e que o npm ci do head acabou de encher: só baixa o que a PR trocou.
+ * Instalação que falha não deixa node_modules pela metade para o passo seguinte.
+ */
 function instalarDeps(dir, env) {
   const temLock = existsSync(join(dir, 'package-lock.json'));
-  const args = temLock ? ['ci', '--no-audit', '--no-fund'] : ['install', '--no-audit', '--no-fund'];
-  const r = spawnSync('npm', args, { cwd: dir, env, stdio: 'inherit' });
-  if (r.status !== 0 && temLock) {
-    const r2 = spawnSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: dir, env, stdio: 'inherit' });
-    if (r2.status !== 0) throw new Error('npm install falhou na base');
-  } else if (r.status !== 0) {
-    throw new Error('npm install falhou na base');
-  }
+  const extras = ['--prefer-offline', '--no-audit', '--no-fund'];
+  const npm = (comando) => spawnSync('npm', [comando, ...extras], { cwd: dir, env, stdio: 'inherit' }).status === 0;
+  if (npm(temLock ? 'ci' : 'install') || (temLock && npm('install'))) return;
+  rmSync(join(dir, 'node_modules'), { recursive: true, force: true });
+  throw new Error('npm install falhou na base');
 }
 
 function linkarDeps(cwd, dir) {
@@ -99,18 +144,33 @@ function isLink(caminho) {
 }
 
 /**
+ * Como a base ficou: 'link' (node_modules do head, mesmo toolchain do head),
+ * 'instalado' (as dependências da própria base) ou 'ausente'.
+ */
+export function depsDaBase(dir) {
+  const destino = join(dir, 'node_modules');
+  if (isLink(destino)) return 'link';
+  return existsSync(destino) ? 'instalado' : 'ausente';
+}
+
+/**
  * Worktree da base em `dir` (fora do workspace do consumidor, para o eslint, o
  * tsc e o vitest do head não enxergarem). Idempotente.
- * deps: 'link' usa o node_modules do head (barato, serve para o lint);
- *       'auto' faz npm ci na base só quando a PR mudou package.json ou lock.
+ * deps: 'link' usa o node_modules do head;
+ *       'auto' faz npm ci na base quando a PR mexeu nas dependências
+ *       (precisaInstalarDeps) e liga o node_modules do head no resto.
+ * O lint e a suíte da base usam 'auto': com 'link', um upgrade de plugin que
+ * liga regra nova apareceria também na base e passaria como erro antigo.
  */
 export function prepararBase({ cwd, sha, dir, deps = 'link', env = process.env }) {
   if (!existsSync(join(dir, '.git'))) {
     mkdirSync(dirname(dir), { recursive: true });
     rodarGit(cwd, ['worktree', 'add', '--detach', '--force', dir, sha], env);
   }
-  if (deps === 'auto' && precisaInstalarDeps(parseNameStatusZ(listarAlterados({ cwd, sha, env })))) {
-    if (isLink(join(dir, 'node_modules'))) rmSync(join(dir, 'node_modules'));
+  const alterados = deps === 'auto' ? parseNameStatusZ(listarAlterados({ cwd, sha, env })) : null;
+  if (alterados && precisaInstalarDeps(alterados, pacotesLocais(cwd, dir))) {
+    // unlinkSync, não rmSync: no Node 23 o rmSync de link para pasta lança ERR_FS_EISDIR.
+    if (isLink(join(dir, 'node_modules'))) unlinkSync(join(dir, 'node_modules'));
     if (!existsSync(join(dir, 'node_modules'))) instalarDeps(dir, env);
     return { dir, deps: 'instalado' };
   }

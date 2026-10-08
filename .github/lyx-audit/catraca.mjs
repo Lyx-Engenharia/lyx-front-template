@@ -10,14 +10,16 @@
 //   cobertura      --lcov|--resumo-head --base-resumo --alterados --saida [--raiz]
 //   relatorio      --repo <md> --lint <json> --cobertura <json>   (markdown no stdout)
 //
+// Env: AUDIT_LINES_MIN, AUDIT_BRANCHES_MIN e AUDIT_COVERAGE_FILES_GATE (off, warn
+// ou error: a regra por arquivo da cobertura; vazio = warn).
 // Saída 1 = a catraca barrou (ou não deu para avaliar). Sem dependência: só node.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { avaliarCobertura, lerLcov, lerResumo, paraResumo, precisaDaBase } from './cobertura.mjs';
-import { listarAlterados, parseNameStatusZ, prepararBase, resolverBase } from './git.mjs';
+import { MODOS_POR_ARQUIVO, avaliarCobertura, lerLcov, lerResumo, paraResumo, precisaDaBase } from './cobertura.mjs';
+import { depsDaBase, listarAlterados, parseNameStatusZ, prepararBase, resolverBase } from './git.mjs';
 import { arquivosParaLintDaBase, compararErros, errosDoEslint } from './lint.mjs';
 import { montarRelatorio } from './relatorio.mjs';
 
@@ -51,6 +53,16 @@ const limitesDoEnv = () => ({
   linhas: percentualDoEnv('AUDIT_LINES_MIN', 75),
   branches: percentualDoEnv('AUDIT_BRANCHES_MIN', 40),
 });
+
+// Input coverage-files-gate. Vazio vale o padrão (warn); valor errado é erro, não vira warn calado.
+function porArquivoDoEnv() {
+  const bruto = (process.env.AUDIT_COVERAGE_FILES_GATE ?? '').trim();
+  if (bruto === '') return 'warn';
+  if (!MODOS_POR_ARQUIVO.includes(bruto)) {
+    throw new Error(`AUDIT_COVERAGE_FILES_GATE inválido (off, warn ou error): "${bruto}"`);
+  }
+  return bruto;
+}
 
 function lerJson(caminho) {
   if (!caminho || !existsSync(caminho)) return null;
@@ -125,6 +137,20 @@ function lintarNaBase(dir, arquivos) {
   return errosDoEslint(json, realpathSync(dir));
 }
 
+/** Erros da base, ou o motivo de não ter base (aí todo erro do head conta). */
+function errosDaBase(dir, errosHead, alterados) {
+  if (!dir || !existsSync(dir)) return { errosBase: null, motivoBase: 'worktree da base indisponível', deps: null };
+  const deps = depsDaBase(dir);
+  if (deps === 'ausente') {
+    return { errosBase: null, motivoBase: 'a base ficou sem node_modules (a instalação das dependências dela falhou?)', deps };
+  }
+  try {
+    return { errosBase: lintarNaBase(dir, arquivosParaLintDaBase(errosHead, alterados)), motivoBase: null, deps };
+  } catch (erro) {
+    return { errosBase: null, motivoBase: erro.message, deps };
+  }
+}
+
 function lint(op) {
   exigir(op, 'eslint', 'saida');
   const head = lerJson(op.eslint);
@@ -139,22 +165,17 @@ function lint(op) {
     return 1;
   }
   const alterados = lerAlterados(op.alterados);
-  let errosBase = null;
-  let motivoBase = null;
   const dir = op['base-dir'] ? resolve(op['base-dir']) : null;
-  if (dir && existsSync(dir)) {
-    try {
-      errosBase = lintarNaBase(dir, arquivosParaLintDaBase(errosHead, alterados));
-    } catch (erro) {
-      motivoBase = erro.message;
-    }
-  } else {
-    motivoBase = 'worktree da base indisponível';
-  }
-  const r = compararErros(errosHead, errosBase, { alterados });
+  const { errosBase, motivoBase, deps } = errosDaBase(dir, errosHead, alterados);
+  // Base com as próprias dependências = a PR mexeu nelas, e a mensagem de uma
+  // regra pode mudar de texto entre versões: compara por (arquivo, regra).
+  const r = compararErros(errosHead, errosBase, { alterados, porRegra: deps === 'instalado' });
   const passou = r.novos.length === 0;
-  gravarJson(op.saida, { passou, motivoBase, ...r });
-  console.error(`[catraca] lint: ${r.novos.reduce((s, g) => s + g.novos, 0)} erro(s) novo(s), ${r.existentes} já existiam na base`);
+  gravarJson(op.saida, { passou, motivoBase, depsDaBase: deps, ...r });
+  console.error(
+    `[catraca] lint: ${r.novos.reduce((s, g) => s + g.novos, 0)} erro(s) novo(s), ${r.existentes} já existiam na base` +
+      ` (dependências da base: ${deps ?? 'sem base'}; comparação por ${r.comparacao})`,
+  );
   return passou ? 0 : 1;
 }
 
@@ -178,8 +199,10 @@ function resumo(op) {
 /**
  * Custo: uma rodada a mais da suíte (a mesma do head). Só quando o head está
  * abaixo do mínimo e não há cache. Com --coverage.reportOnFailure o vitest grava
- * a cobertura mesmo com teste falhando na base: a PR que conserta a main não
- * fica presa por falta da base.
+ * a cobertura mesmo com teste falhando na base; o resumo sai com a marca da
+ * suíte vermelha, e essa base não vale como referência (teste que não rodou
+ * baixa a cobertura dela). Saída 1 nesse caso: o cache só guarda base verde, e
+ * a próxima rodada mede de novo (teste instável pode passar).
  */
 function coberturaBase(op) {
   exigir(op, 'dir', 'saida');
@@ -191,13 +214,22 @@ function coberturaBase(op) {
     console.error(`[catraca] a suíte da base não gerou ${lcov} (saída ${r.status}): cobertura da base indisponível`);
     return 1;
   }
-  if (r.status !== 0) console.error(`[catraca] a suíte da base falhou (saída ${r.status}), mas gravou a cobertura: vale como base`);
-  gravarJson(op.saida, paraResumo(lerLcov(readFileSync(lcov, 'utf8'), { raiz: realpathSync(dir) })));
-  return 0;
+  const suiteFalhou = r.status !== 0;
+  gravarJson(op.saida, paraResumo(lerLcov(readFileSync(lcov, 'utf8'), { raiz: realpathSync(dir) }), { suiteFalhou }));
+  if (!suiteFalhou) return 0;
+  console.error(`[catraca] a suíte da base falhou (saída ${r.status}): a cobertura dela fica no relatório, mas não vale como base`);
+  return 1;
 }
 
 function cobertura(op) {
   exigir(op, 'saida');
+  let porArquivo;
+  try {
+    porArquivo = porArquivoDoEnv();
+  } catch (erro) {
+    gravarJson(op.saida, { passou: false, motivo: erro.message });
+    throw erro;
+  }
   const raiz = op.raiz ? resolve(op.raiz) : process.cwd();
   let head = null;
   const resumoHead = lerJson(op['resumo-head']);
@@ -213,6 +245,7 @@ function cobertura(op) {
     base: jsonBase ? lerResumo(jsonBase, { raiz }) : null,
     alterados: lerAlterados(op.alterados),
     limites: limitesDoEnv(),
+    porArquivo,
   });
   gravarJson(op.saida, r);
   console.error(`[catraca] cobertura: ${r.passou ? 'ok' : 'barrou'} (lines ${r.global.linhas.status}, branches ${r.global.branches.status})`);

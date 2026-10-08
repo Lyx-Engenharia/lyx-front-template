@@ -6,14 +6,22 @@
 //     ganha folga);
 //   - base já estava abaixo do mínimo (dívida): o head não pode cair mais de 0,1
 //     ponto em relação a ela. Arquivo que a PR apaga sai da conta da base:
-//     apagar código coberto não é perder cobertura.
-// Por arquivo: cada arquivo com lógica que a PR cria ou altera precisa do mínimo.
-// "Com lógica" = está no lcov do vitest, ou seja, os mesmos excluídos de hoje
-// (coverage.include/exclude do consumidor) continuam fora.
+//     apagar código coberto não é perder cobertura. A tolerância é por PR e
+//     acumula: dez PRs seguidas podem tirar até 1 ponto;
+//   - base medida com teste falhando (suíte vermelha na worktree): não vale como
+//     referência, porque teste que não rodou baixa a cobertura dela. Com o head
+//     abaixo do mínimo, barra.
+// Por arquivo (input coverage-files-gate: off, warn ou error; padrão warn): cada
+// arquivo com lógica que a PR cria ou altera precisa do mínimo. Em warn aparece
+// no relatório e não reprova. "Com lógica" = está no lcov do vitest, ou seja, os
+// mesmos excluídos de hoje (coverage.include/exclude do consumidor) ficam fora.
 import { extname, isAbsolute, relative, sep } from 'node:path';
 import { arquivosCriadosOuAlterados } from './git.mjs';
 
 export const TOLERANCIA_PONTOS = 0.1;
+export const MODOS_POR_ARQUIVO = ['off', 'warn', 'error'];
+// Chave do coverage-summary com o que não é arquivo (a suíte da base falhou?).
+const CHAVE_META = '#lyx-audit';
 const EPSILON = 1e-9;
 const METRICAS = { linhas: 'lines', branches: 'branches', funcoes: 'functions' };
 
@@ -92,10 +100,12 @@ function totaisDoResumo(entrada) {
 export function lerResumo(json, { raiz } = {}) {
   const arquivos = {};
   for (const [chave, entrada] of Object.entries(json ?? {})) {
-    if (chave === 'total') continue;
+    if (chave === 'total' || chave === CHAVE_META) continue;
     arquivos[relativo(chave, raiz)] = totaisDoResumo(entrada);
   }
-  return { total: totaisDoResumo(json?.total), arquivos };
+  const lido = { total: totaisDoResumo(json?.total), arquivos };
+  if (json?.[CHAVE_META]?.suiteDaBase === 'falhou') lido.suiteFalhou = true;
+  return lido;
 }
 
 /** Percentual exato; null quando não há o que medir. */
@@ -112,9 +122,14 @@ function totaisPublicados(t) {
   return { lines: metricaPublicada(t.linhas), branches: metricaPublicada(t.branches), functions: metricaPublicada(t.funcoes) };
 }
 
-/** { total, arquivos } → coverage-summary.json (json-summary do istanbul). */
-export function paraResumo(cobertura) {
+/**
+ * { total, arquivos } → coverage-summary.json (json-summary do istanbul).
+ * suiteFalhou: a suíte que mediu falhou; vai na chave '#lyx-audit', que o
+ * lerResumo devolve como `suiteFalhou` e não conta como arquivo.
+ */
+export function paraResumo(cobertura, { suiteFalhou = false } = {}) {
   const json = { total: totaisPublicados(cobertura.total) };
+  if (suiteFalhou) json[CHAVE_META] = { suiteDaBase: 'falhou' };
   for (const caminho of Object.keys(cobertura.arquivos).sort()) {
     json[caminho] = totaisPublicados(cobertura.arquivos[caminho]);
   }
@@ -132,7 +147,7 @@ export function precisaDaBase(head, limites) {
 }
 
 /** Status da global que barram a PR (os demais passam). */
-export const STATUS_QUE_BARRAM = new Set(['sem-base', 'queda', 'abaixo-do-minimo']);
+export const STATUS_QUE_BARRAM = new Set(['sem-base', 'queda', 'abaixo-do-minimo', 'base-vermelha']);
 
 function avaliarGlobal(m, { head, base, minimo, tolerancia }) {
   const h = head.total[m];
@@ -143,6 +158,9 @@ function avaliarGlobal(m, { head, base, minimo, tolerancia }) {
   if (resultado.base === null) return { ...resultado, status: 'sem-base' };
   resultado.queda = resultado.base - resultado.head;
   if (cumpre(b, minimo)) return { ...resultado, status: 'abaixo-do-minimo' };
+  // Base abaixo do mínimo só por causa da suíte vermelha daria a tolerância a
+  // um repo sem dívida: falha fechada, como sem base.
+  if (base.suiteFalhou) return { ...resultado, status: 'base-vermelha' };
   return { ...resultado, status: resultado.queda <= tolerancia + EPSILON ? 'ok-catraca' : 'queda' };
 }
 
@@ -169,7 +187,7 @@ export function baseSemRemovidos(base, alterados) {
     subtrair(total, base.arquivos[c]);
     delete arquivos[c];
   }
-  return { base: { total, arquivos }, removidos };
+  return { base: { ...base, total, arquivos }, removidos };
 }
 
 function avaliarArquivo(arquivo, t, limites) {
@@ -203,22 +221,31 @@ export function dividaPorArquivo(head, limites) {
 }
 
 /**
- * head/base: { total, arquivos }. base null = indisponível. alterados: saída do
- * parseNameStatusZ (null = não deu para saber o que a PR mudou: barra).
+ * head/base: { total, arquivos } (base.suiteFalhou: medida com teste falhando).
+ * base null = indisponível. alterados: saída do parseNameStatusZ (null = não deu
+ * para saber o que a PR mudou). porArquivo: input coverage-files-gate; só
+ * 'error' reprova pelos arquivos (e por não saber quais a PR mudou).
  */
-export function avaliarCobertura({ head, base, alterados, limites, tolerancia = TOLERANCIA_PONTOS }) {
+export function avaliarCobertura({ head, base, alterados, limites, tolerancia = TOLERANCIA_PONTOS, porArquivo = 'warn' }) {
+  if (!MODOS_POR_ARQUIVO.includes(porArquivo)) {
+    throw new Error(`coverage-files-gate inválido (off, warn ou error): "${porArquivo}"`);
+  }
   const comparavel = baseSemRemovidos(base, alterados);
   const global = {
     linhas: avaliarGlobal('linhas', { head, base: comparavel.base, minimo: limites.linhas, tolerancia }),
     branches: avaliarGlobal('branches', { head, base: comparavel.base, minimo: limites.branches, tolerancia }),
   };
-  const { arquivos, foraDaCobertura } = arquivosDaPr(head, alterados, limites);
+  const { arquivos, foraDaCobertura } = porArquivo === 'off' ? { arquivos: [], foraDaCobertura: [] } : arquivosDaPr(head, alterados, limites);
   const globalOk = Object.values(global).every((g) => !STATUS_QUE_BARRAM.has(g.status));
+  const arquivosPassou = alterados !== null && arquivos.every((a) => a.passou);
   return {
-    passou: globalOk && alterados !== null && arquivos.every((a) => a.passou),
+    passou: globalOk && (porArquivo !== 'error' || arquivosPassou),
     limites,
     tolerancia,
+    porArquivo,
+    arquivosPassou,
     baseDisponivel: Boolean(base),
+    baseSuiteFalhou: Boolean(base?.suiteFalhou),
     alteradosDisponivel: alterados !== null,
     removidosDaBase: comparavel.removidos,
     global,

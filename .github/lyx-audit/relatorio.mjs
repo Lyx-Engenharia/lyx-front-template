@@ -53,10 +53,15 @@ function detalheGlobal(g) {
       return `${pct2(g.head)}${base}: a base cumpria o mínimo de ${g.minimo}% e esta PR deixa a global abaixo dele`;
     case 'sem-base':
       return `${pct2(g.head)}, abaixo de ${g.minimo}%, e a cobertura da base não foi medida`;
+    case 'base-vermelha':
+      return `${pct2(g.head)}${base}: a suíte da base falhou, então a cobertura dela não vale como referência; abaixo de ${g.minimo}% a PR barra`;
     default:
       return 'sem dados no lcov';
   }
 }
+
+// Input coverage-files-gate. JSON sem o campo: o padrão do input.
+const modoPorArquivo = (cobertura) => cobertura?.porArquivo ?? 'warn';
 
 function detalheArquivos(cobertura) {
   const { limites, arquivos } = cobertura;
@@ -69,16 +74,26 @@ function detalheArquivos(cobertura) {
   return `${abaixo} de ${arquivos.length} abaixo de ${limites.linhas}% lines ou ${limites.branches}% branches`;
 }
 
+const ROTULO_ARQUIVOS = 'Arquivos que a PR cria ou altera';
+
+function linhaArquivos(cobertura) {
+  const modo = modoPorArquivo(cobertura);
+  if (modo === 'off') return linhaTabela(ROTULO_ARQUIVOS, 'desligada', 'coverage-files-gate: off');
+  const arquivosOk = cobertura.alteradosDisponivel !== false && cobertura.arquivos.every((a) => a.passou);
+  if (arquivosOk || modo === 'error') return linhaTabela(ROTULO_ARQUIVOS, ok(arquivosOk), detalheArquivos(cobertura));
+  return linhaTabela(ROTULO_ARQUIVOS, 'AVISO', `${detalheArquivos(cobertura)} (aviso, não barra: coverage-files-gate é warn)`);
+}
+
 function linhasCobertura(checks, cobertura) {
   if (checks.testes !== 'success' && checks.testes !== 'failure') {
     return [linhaTabela('Cobertura', 'não rodou', 'os testes não rodaram')];
   }
   if (!cobertura) return [linhaTabela('Cobertura', 'FAIL', 'a catraca da cobertura não rodou (veja os logs)')];
+  if (!cobertura.global) return [linhaTabela('Cobertura', 'FAIL', cobertura.motivo ?? 'a catraca da cobertura não chegou a um resultado (veja os logs)')];
   const linhas = Object.entries(cobertura.global).map(([m, g]) =>
     linhaTabela(`Cobertura global (${ROTULO_METRICA[m]})`, ok(!STATUS_QUE_BARRAM.has(g.status)), detalheGlobal(g)),
   );
-  const arquivosOk = cobertura.alteradosDisponivel !== false && cobertura.arquivos.every((a) => a.passou);
-  linhas.push(linhaTabela('Arquivos que a PR cria ou altera', ok(arquivosOk), detalheArquivos(cobertura)));
+  linhas.push(linhaArquivos(cobertura));
   return linhas;
 }
 
@@ -124,7 +139,8 @@ function secaoArquivos(cobertura) {
     const itens = abaixo.map(
       (a) => `| \`${a.arquivo}\` | ${celula(a.linhas, a.linhasOk, limites.linhas)} | ${celula(a.branches, a.branchesOk, limites.branches)} |`,
     );
-    linhas.push('', '#### Arquivos abaixo do mínimo', '', '| Arquivo | Lines | Branches |', '|---|---|---|', ...cortar(itens, 'arquivos'));
+    const titulo = modoPorArquivo(cobertura) === 'warn' ? '#### Arquivos abaixo do mínimo (aviso, não barra esta PR)' : '#### Arquivos abaixo do mínimo';
+    linhas.push('', titulo, '', '| Arquivo | Lines | Branches |', '|---|---|---|', ...cortar(itens, 'arquivos'));
   }
   if (fora.length > 0) {
     linhas.push('', `_${plural(fora.length, 'arquivo de código alterado fica', 'arquivos de código alterados ficam')} fora da cobertura (fora do include ou no exclude do coverage no vitest.config: specs, páginas, tipos, ui, scripts)._`);
@@ -133,8 +149,28 @@ function secaoArquivos(cobertura) {
   if (removidos.length > 0) {
     linhas.push('', `_${plural(removidos.length, 'arquivo que esta PR apaga sai', 'arquivos que esta PR apaga saem')} da conta da base: apagar código coberto não é perder cobertura._`);
   }
+  if (cobertura?.baseSuiteFalhou) {
+    linhas.push(
+      '',
+      '_A suíte da base rodou com teste falhando (na worktree da base, sem cache): a cobertura que ela mediu aparece acima só como informação e não serve de base, porque teste que não rodou baixa a cobertura. Com a global abaixo do mínimo, a PR barra. Rode de novo (teste instável pode passar); se a main está com teste quebrado, a base só volta a valer quando ela voltar a passar._',
+    );
+  }
   return linhas;
 }
+
+function notaDoLint(lint) {
+  if (lint?.comparacao !== 'regra') return [];
+  return [
+    '',
+    '_A PR mexe nas dependências (package.json, lock, .npmrc ou pacote local): o ESLint da base rodou com as dependências da base, e cada erro foi comparado por arquivo e regra, sem a mensagem, que pode mudar de texto entre versões. Regra que o upgrade liga conta como erro novo._',
+  ];
+}
+
+const SEGUE_A_DIVIDA = {
+  error: ' Cada um passa a ser cobrado quando uma PR o cria ou altera.',
+  warn: ' Quando uma PR cria ou altera um deles, ele aparece como aviso no gate (coverage-files-gate: warn).',
+  off: '',
+};
 
 function linhaDividaPorArquivo(cobertura) {
   const divida = cobertura?.dividaPorArquivo;
@@ -142,7 +178,7 @@ function linhaDividaPorArquivo(cobertura) {
   const { linhas, branches } = cobertura.limites;
   const rotulo = `Arquivos com lógica abaixo de ${linhas}% lines ou ${branches}% branches`;
   if (divida.abaixo === 0) return [`${rotulo}: nenhum dos ${divida.total}.`, ''];
-  return [`${rotulo}: ${divida.abaixo} de ${divida.total}. Cada um passa a ser cobrado quando uma PR o cria ou altera.`, ''];
+  return [`${rotulo}: ${divida.abaixo} de ${divida.total}.${SEGUE_A_DIVIDA[modoPorArquivo(cobertura)] ?? ''}`, ''];
 }
 
 /**
@@ -182,6 +218,7 @@ export function montarRelatorio({ sha, base, limites, checks, lint, cobertura, r
     introducao(base, limites),
     '',
     ...tabelaDoGate({ checks, lint, cobertura }),
+    ...notaDoLint(lint),
     ...secaoLintNovos(lint),
     ...secaoArquivos(cobertura),
     ...dividaDoRepo(relatorioDoRepo, cobertura),

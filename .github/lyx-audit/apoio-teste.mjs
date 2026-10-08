@@ -21,6 +21,19 @@ export function git(cwd, ...args) {
   return execFileSync('git', args, { cwd, env: GIT_ENV, encoding: 'utf8' }).trim();
 }
 
+/**
+ * npm de verdade e offline: os testes só usam dependência `file:` do próprio repo
+ * (o npm liga a pasta no node_modules, sem registry).
+ */
+export function npmOffline(cwd, ...args) {
+  return execFileSync('npm', [...args, '--offline', '--no-audit', '--no-fund'], {
+    cwd,
+    env: { ...GIT_ENV, npm_config_update_notifier: 'false' },
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
 export function escrever(raiz, arquivos) {
   for (const [caminho, conteudo] of Object.entries(arquivos)) {
     const destino = join(raiz, caminho);
@@ -79,6 +92,7 @@ export function passosDoWorkflow(texto) {
 /**
  * Cria origem com `main` (base) e a branch da PR, faz o merge --no-ff (o que o
  * GitHub faz em refs/pull/N/merge) e devolve um clone raso de 2 commits do merge.
+ * `base` são os arquivos da main (ou uma função que os escreve na raiz).
  * `pr(raiz)` aplica as mudanças da PR (pode usar git mv).
  */
 export function repoComPrMergeada({ base, pr }) {
@@ -86,7 +100,8 @@ export function repoComPrMergeada({ base, pr }) {
   const origem = join(pasta, 'origem');
   mkdirSync(origem);
   git(origem, 'init', '-q', '-b', 'main');
-  escrever(origem, base);
+  if (typeof base === 'function') base(origem);
+  else escrever(origem, base);
   git(origem, 'add', '-A');
   git(origem, 'commit', '-q', '-m', 'base');
   const shaBase = git(origem, 'rev-parse', 'HEAD');
@@ -99,4 +114,44 @@ export function repoComPrMergeada({ base, pr }) {
   const clone = join(pasta, 'clone');
   git(pasta, 'clone', '-q', '--depth', '2', `file://${origem}`, clone);
   return { pasta, clone, shaBase, limpar: () => rmSync(pasta, { recursive: true, force: true }) };
+}
+
+/**
+ * Front de mentira para a catraca do lint, com um plugin de ESLint em duas
+ * versões (o que um upgrade de eslint-config-next, sonarjs ou @lyxai/front-audit
+ * faz): a 2.0.0 reescreve a mensagem da regra fake/proibido e liga no-console.
+ * O `eslint` do front é um calço que chama o ESLint de verdade do template
+ * (`binDoEslint`), então o npm instala tudo offline, por `file:`.
+ */
+export function frontComPluginDeLint({ binDoEslint, versao, codigo }) {
+  const plugin = (v) => {
+    const mensagem = v === 2 ? 'não use proibido (texto novo da 2.0.0)' : 'uso de proibido (1.0.0)';
+    const extra = v === 2 ? ", 'no-console': 'error'" : '';
+    return {
+      [`vendor/fake-v${v}/package.json`]: JSON.stringify({ name: 'eslint-plugin-fake', version: `${v}.0.0`, main: 'index.js' }),
+      [`vendor/fake-v${v}/index.js`]: [
+        'const plugin = { rules: { proibido: { meta: { type: "problem", schema: [] }, create(context) {',
+        `  return { Identifier(node) { if (node.name === 'proibido') context.report({ node, message: ${JSON.stringify(mensagem)} }); } };`,
+        '} } } };',
+        `plugin.configs = { recommended: [{ plugins: { fake: plugin }, rules: { 'fake/proibido': 'error'${extra} } }] };`,
+        'module.exports = plugin;',
+        '',
+      ].join('\n'),
+    };
+  };
+  return {
+    ...plugin(1),
+    ...plugin(2),
+    'vendor/eslint/package.json': JSON.stringify({ name: 'eslint', version: '9.0.0', bin: { eslint: 'bin.cjs' } }),
+    'vendor/eslint/bin.cjs': `#!/usr/bin/env node\nrequire(${JSON.stringify(binDoEslint)});\n`,
+    'package.json': pacoteDoFront(versao),
+    'eslint.config.mjs': "import fake from 'eslint-plugin-fake';\nexport default [{ ignores: ['vendor/**'] }, ...fake.configs.recommended];\n",
+    ...codigo,
+  };
+}
+
+/** package.json do front de mentira, com o plugin na versão pedida. */
+export function pacoteDoFront(versao) {
+  const devDependencies = { eslint: 'file:./vendor/eslint', 'eslint-plugin-fake': `file:./vendor/fake-v${versao}` };
+  return `${JSON.stringify({ name: 'front-de-mentira', private: true, devDependencies }, null, 2)}\n`;
 }
