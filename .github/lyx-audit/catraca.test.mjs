@@ -200,16 +200,22 @@ describe('catraca (CLI)', () => {
         },
         pr,
       });
-      symlinkSync(nodeModules, join(repo.clone, 'node_modules'));
-      mkdirSync(join(repo.clone, 'audit'));
-      // O que o passo "ESLint JSON" do workflow faz no head.
-      spawnSync(join(repo.clone, 'node_modules/.bin/eslint'), ['.', '--format=json', '--output-file=audit/eslint.json'], { cwd: repo.clone });
-      const alterados = join(repo.pasta, 'alterados.z');
-      const base = catraca(repo.clone, ['base', '--alterados', alterados]);
-      const sha = /^sha=(.+)$/m.exec(base.stdout)[1];
-      const dir = join(repo.pasta, 'base');
-      assert.equal(catraca(repo.clone, ['preparar-base', '--sha', sha, '--dir', dir, '--deps', 'link']).status, 0);
-      return { repo, alterados, dir };
+      try {
+        symlinkSync(nodeModules, join(repo.clone, 'node_modules'));
+        mkdirSync(join(repo.clone, 'audit'));
+        // O que o passo "ESLint JSON" do workflow faz no head.
+        spawnSync(join(repo.clone, 'node_modules/.bin/eslint'), ['.', '--format=json', '--output-file=audit/eslint.json'], { cwd: repo.clone });
+        const alterados = join(repo.pasta, 'alterados.z');
+        const base = catraca(repo.clone, ['base', '--alterados', alterados]);
+        const sha = /^sha=(.+)$/m.exec(base.stdout)[1];
+        const dir = join(repo.pasta, 'base');
+        assert.equal(catraca(repo.clone, ['preparar-base', '--sha', sha, '--dir', dir, '--deps', 'link']).status, 0);
+        return { repo, alterados, dir };
+      } catch (erro) {
+        // Falhou antes de o teste assumir a limpeza: não deixa a pasta temporária para trás.
+        repo.limpar();
+        throw erro;
+      }
     }
 
     it('PR que piora: conta só o erro novo, inclusive em caminho com colchetes e em arquivo antigo', { skip: !nodeModules && 'eslint não instalado' }, () => {
