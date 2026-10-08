@@ -1,16 +1,18 @@
 // Testes do lyx-audit.yml: o passo que decide o status do job, a ligação entre o
-// YAML e a CLI da catraca e os passos do lint rodando de verdade.
+// YAML e a CLI da catraca, os passos do lint rodando de verdade e o job inteiro
+// simulado (apoio-workflow.mjs: if: e env: avaliados como o GitHub avalia).
 // LYX_AUDIT_WORKFLOW troca o arquivo testado (útil para rodar contra a versão da
 // main e ver o que muda).
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMANDOS, OPCOES } from './catraca.mjs';
-import { GIT_ENV, escrever, frontComPluginDeLint, npmOffline, pacoteDoFront, passosDoWorkflow, repoComPrMergeada } from './apoio-teste.mjs';
+import { GIT_ENV, escrever, frontComPluginDeLint, git, npmOffline, pacoteDoFront, passosDoWorkflow, repoComPrMergeada } from './apoio-teste.mjs';
+import { avaliar as avaliarExpressao, interpolar, lerYaml, rodarJob } from './apoio-workflow.mjs';
 
 const WORKFLOW = process.env.LYX_AUDIT_WORKFLOW ?? fileURLToPath(new URL('../workflows/lyx-audit.yml', import.meta.url));
 const TEXTO = readFileSync(WORKFLOW, 'utf8');
@@ -193,6 +195,277 @@ describe('lyx-audit.yml', () => {
       assert.deepEqual(r.json.novos.map((g) => [g.arquivo, g.regra, g.novos]), [['src/b.js', 'fake/proibido', 1]]);
       assert.equal(r.json.depsDaBase, 'link');
       assert.equal(r.json.comparacao, 'mensagem');
+    });
+  });
+
+  describe('expressões ${{ }} do simulador (a semântica do GitHub que os if: usam)', () => {
+    const ctx = { inputs: { ratchet: true, 'skip-deps-check': false }, steps: { tests: { outcome: 'failure', outputs: {} }, c: { outputs: {} } } };
+    it('saída que não existe é null: != compara como diferente, == como igual a vazio', () => {
+      assert.equal(avaliarExpressao("${{ steps.c.outputs.cache-hit != 'true' }}", ctx), true);
+      assert.equal(avaliarExpressao("${{ steps.c.outputs.cache-hit == '' }}", ctx), true);
+      assert.equal(avaliarExpressao("${{ steps.c.outputs.ativa == 'true' }}", ctx), false);
+    });
+    it('precedência: ! e == antes de &&, && antes de ||; texto sem diferenciar caixa', () => {
+      assert.equal(avaliarExpressao("${{ !inputs.skip-deps-check && (steps.tests.outcome == 'success' || steps.tests.outcome == 'FAILURE') }}", ctx), true);
+      assert.equal(avaliarExpressao("${{ inputs.ratchet && 'warn' || 'error' }}", ctx), 'warn');
+      assert.equal(interpolar('modo=${{ inputs.ratchet }} x=${{ steps.c.outputs.nada }}.', ctx), 'modo=true x=.');
+    });
+  });
+
+  describe('o job inteiro simulado: condições dos passos (if:), outputs entre passos e o status final', () => {
+    const eslintDoTemplate = binDoEslint();
+    const nodeModulesDoTemplate = eslintDoTemplate && dirname(dirname(dirname(eslintDoTemplate)));
+    const pular = !eslintDoTemplate && 'eslint não instalado';
+    const WF = lerYaml(TEXTO);
+    // Rodam de verdade: os passos da catraca e os que só usam bash, node e git.
+    // Os demais (npm, npx do pacote, gh, uses:) são simulados pelo cenário.
+    const EXECUTAR = [
+      'Catraca: preparar',
+      'Catraca: base da PR',
+      'Prepare audit dir',
+      'ESLint JSON',
+      'Catraca: lint (erros novos)',
+      'Catraca: cobertura da base é necessária?',
+      'Catraca: suíte na base (sem cache)',
+      'Catraca: cobertura',
+      'Catraca: publicar a cobertura da main',
+      'Relatório: gate da PR e dívida do repo',
+      'Avaliar status final',
+    ];
+    const SCRIPTS = dirname(CLI);
+    const lcov = (arquivos) =>
+      Object.entries(arquivos)
+        .map(([arquivo, [total, cobertas]]) => `SF:${arquivo}\nLF:${total}\nLH:${cobertas}\nBRF:0\nBRH:0\nend_of_record\n`)
+        .join('');
+    // test:coverage da base: grava o lcov; com `falha`, só grava com --coverage.reportOnFailure e sai 1 (o vitest faz assim).
+    const geraCobertura = (arquivos, { falha = false } = {}) =>
+      [
+        "const fs = require('fs');",
+        `const grava = () => { fs.mkdirSync('coverage', { recursive: true }); fs.writeFileSync('coverage/lcov.info', ${JSON.stringify(lcov(arquivos))}); };`,
+        falha ? "if (process.argv.includes('--coverage.reportOnFailure')) grava(); process.exit(1);" : 'grava();',
+        '',
+      ].join('\n');
+    const CONFIG = `export default [{ files: ['src/**/*.js'], rules: { complexity: ['error', 2] } }];\n`;
+    const complexa = (nome) => `export function ${nome}(a, b) {\n  if (a) return 1;\n  if (b) return 2;\n  return 3;\n}\n`;
+
+    function repo({ baseCobertura, baseFalha = false, pr }) {
+      const r = repoComPrMergeada({
+        base: {
+          'package.json': JSON.stringify({ name: 'front', private: true, scripts: { 'test:coverage': 'node gera.cjs' } }),
+          'gera.cjs': geraCobertura(baseCobertura, { falha: baseFalha }),
+          'eslint.config.mjs': CONFIG,
+          'src/velho.js': complexa('velha'),
+          'src/resto.js': 'export const resto = 1;\n',
+        },
+        pr,
+      });
+      try {
+        // O node_modules do template faz o papel do npm ci do consumidor (ESLint de verdade).
+        symlinkSync(nodeModulesDoTemplate, join(r.clone, 'node_modules'));
+      } catch (erro) {
+        r.limpar();
+        throw erro;
+      }
+      return r;
+    }
+
+    function rodar(r, { evento = 'pull_request', inputs = {}, scriptsCarregam = true, simulados = {} } = {}) {
+      const temp = join(r.pasta, 'runner-temp');
+      mkdirSync(temp, { recursive: true });
+      const contexto = {
+        github: {
+          event_name: evento,
+          repository: 'Lyx-Engenharia/lyx-front-de-teste',
+          ref_name: evento === 'push' ? 'main' : '7/merge',
+          sha: 'f'.repeat(40),
+          run_id: 1,
+          event: { repository: { default_branch: 'main' }, pull_request: evento === 'pull_request' ? { number: 7, head: { sha: 'a'.repeat(40) } } : null },
+        },
+        job: { workflow_repository: 'Lyx-Engenharia/lyx-front-template', workflow_sha: 'b'.repeat(40) },
+        runner: { temp },
+      };
+      // O checkout esparso dos scripts do template, entre repos (o consumidor não é o template).
+      const scripts = {
+        outcome: scriptsCarregam ? 'success' : 'failure',
+        efeito: (cwd) => {
+          if (!scriptsCarregam) return;
+          const destino = join(cwd, '.lyx-audit-template/.github/lyx-audit');
+          mkdirSync(destino, { recursive: true });
+          for (const f of readdirSync(SCRIPTS).filter((n) => n.endsWith('.mjs'))) cpSync(join(SCRIPTS, f), join(destino, f));
+        },
+      };
+      const passos = rodarJob({
+        workflow: WF,
+        cwd: r.clone,
+        inputs,
+        contexto,
+        executar: EXECUTAR,
+        simulados: { 'Catraca: scripts do template': scripts, ...simulados },
+        envBase: { ...GIT_ENV, RUNNER_TEMP: temp, GITHUB_REF_NAME: contexto.github.ref_name },
+      });
+      const por = (nome) => {
+        const p = passos.find((x) => x.nome === nome);
+        assert.ok(p, `passo "${nome}" no workflow`);
+        return p;
+      };
+      const relatorio = join(r.clone, 'audit/report.md');
+      return { passos, por, final: por('Avaliar status final'), relatorio: existsSync(relatorio) ? readFileSync(relatorio, 'utf8') : '' };
+    }
+
+    // Consumidor com o desfecho pedido; os testes do head gravam o lcov do head.
+    const consumidor = ({ lint = 'success', typecheck = 'success', testes = 'success', headCobertura }) => ({
+      Lint: { outcome: lint },
+      Typecheck: { outcome: typecheck },
+      'Tests + coverage': {
+        outcome: testes,
+        efeito: (cwd) => escrever(cwd, { 'coverage/lcov.info': lcov(headCobertura) }),
+      },
+    });
+    const rodou = (job, nome) => job.por(nome).rodou;
+
+    it('todo passo que o simulador roda de verdade existe no workflow', () => {
+      const nomes = WF.jobs.audit.steps.map((p) => p.name);
+      for (const nome of EXECUTAR) assert.ok(nomes.includes(nome), nome);
+    });
+
+    it('PR boa num repo com dívida, scripts vindos de outro repo: a catraca inteira roda (inclusive a suíte na base) e o job fica verde', { skip: pular }, () => {
+      const r = repo({ baseCobertura: { 'src/velho.js': [10, 2], 'src/resto.js': [90, 18] }, pr: (raiz) => escrever(raiz, { 'src/novo.js': 'export const novo = 1;\n' }) });
+      try {
+        const job = rodar(r, { simulados: consumidor({ lint: 'failure', headCobertura: { 'src/velho.js': [10, 2], 'src/resto.js': [90, 18], 'src/novo.js': [10, 10] } }) });
+        for (const nome of ['Catraca: lint (erros novos)', 'Catraca: suíte na base (sem cache)', 'Catraca: cache da cobertura da base (desta PR)', 'Catraca: cobertura']) {
+          assert.equal(job.por(nome).outcome, 'success', `${nome}: ${job.por(nome).saida}`);
+        }
+        assert.equal(job.por('Catraca: base da PR').outputs.disponivel, 'true');
+        assert.equal(job.final.outcome, 'success', job.final.saida);
+        assert.match(job.final.saida, /Modo: +catraca/);
+        assert.match(job.relatorio, /\| Lint \(erros novos\) \| OK \| nenhum erro novo · 1 já existia na base \|/);
+      } finally {
+        r.limpar();
+      }
+    });
+
+    it('scripts do template não carregaram: nenhum passo da catraca roda e o gate volta ao absoluto, com aviso', { skip: pular }, () => {
+      const r = repo({ baseCobertura: { 'src/velho.js': [10, 2], 'src/resto.js': [90, 18] }, pr: (raiz) => escrever(raiz, { 'src/novo.js': 'export const novo = 1;\n' }) });
+      try {
+        const job = rodar(r, { scriptsCarregam: false, simulados: consumidor({ lint: 'failure', headCobertura: { 'src/velho.js': [10, 2] } }) });
+        assert.equal(job.por('Catraca: preparar').outcome, 'failure');
+        for (const nome of ['Catraca: base da PR', 'Catraca: lint (erros novos)', 'Catraca: cobertura da base é necessária?', 'Catraca: cobertura']) {
+          assert.equal(rodou(job, nome), false, nome);
+        }
+        assert.equal(job.final.outcome, 'failure');
+        assert.match(job.final.saida, /Modo: +absoluto/);
+        assert.match(job.final.saida, /::warning::Catraca pedida/);
+        assert.match(job.final.saida, /Falhas: lint/);
+      } finally {
+        r.limpar();
+      }
+    });
+
+    it('HEAD sem commit de merge (base indisponível): não mede a base, a catraca da cobertura avalia sem ela e barra o head abaixo do mínimo', { skip: pular }, () => {
+      const r = repo({ baseCobertura: { 'src/resto.js': [100, 20] }, pr: (raiz) => escrever(raiz, { 'src/novo.js': 'export const novo = 1;\n' }) });
+      try {
+        git(r.clone, 'checkout', '-q', 'HEAD^2');
+        const job = rodar(r, { simulados: consumidor({ headCobertura: { 'src/resto.js': [100, 20] } }) });
+        assert.equal(job.por('Catraca: base da PR').outputs.disponivel, 'false');
+        assert.equal(rodou(job, 'Catraca: cobertura da base é necessária?'), false);
+        assert.equal(rodou(job, 'Catraca: suíte na base (sem cache)'), false);
+        assert.equal(job.por('Catraca: cobertura').outcome, 'failure');
+        assert.equal(job.final.outcome, 'failure');
+        assert.match(job.final.saida, /Falhas: coverage/);
+      } finally {
+        r.limpar();
+      }
+    });
+
+    it('typecheck quebrado: testes e catraca da cobertura não rodam, e o job barra pelo typecheck', { skip: pular }, () => {
+      const r = repo({ baseCobertura: { 'src/resto.js': [100, 90] }, pr: (raiz) => escrever(raiz, { 'src/novo.js': 'export const novo = 1;\n' }) });
+      try {
+        const job = rodar(r, { simulados: consumidor({ typecheck: 'failure', headCobertura: {} }) });
+        assert.equal(rodou(job, 'Tests + coverage'), false);
+        assert.equal(rodou(job, 'Catraca: cobertura'), false);
+        assert.equal(rodou(job, 'Coverage gate (global)'), false);
+        // Só o typecheck na lista de falhas (o que vem depois do nome é a pontuação da mensagem).
+        assert.match(job.final.saida, /::error::Falhas: typecheck \W/);
+      } finally {
+        r.limpar();
+      }
+    });
+
+    it('cobertura da base no cache: a suíte da base não roda e o cache não é salvo de novo', { skip: pular }, () => {
+      const r = repo({ baseCobertura: { 'src/resto.js': [100, 20] }, pr: (raiz) => escrever(raiz, { 'src/novo.js': 'export const novo = 1;\n' }) });
+      try {
+        const doCache = (cwd, { env }) => {
+          const resumo = join(env.RUNNER_TEMP, 'lyx-audit/cobertura-base/coverage-summary.json');
+          mkdirSync(dirname(resumo), { recursive: true });
+          writeFileSync(resumo, JSON.stringify({ total: { lines: { total: 100, covered: 20 }, branches: { total: 0, covered: 0 } } }));
+        };
+        const job = rodar(r, {
+          simulados: {
+            ...consumidor({ headCobertura: { 'src/resto.js': [100, 20], 'src/novo.js': [10, 10] } }),
+            'Catraca: cobertura da base (cache)': { outputs: { 'cache-hit': 'true' }, efeito: doCache },
+          },
+        });
+        assert.equal(rodou(job, 'Catraca: suíte na base (sem cache)'), false);
+        assert.equal(rodou(job, 'Catraca: cache da cobertura da base (desta PR)'), false);
+        assert.equal(job.por('Catraca: cobertura').outcome, 'success', job.por('Catraca: cobertura').saida);
+        assert.equal(job.final.outcome, 'success', job.final.saida);
+      } finally {
+        r.limpar();
+      }
+    });
+
+    it('suíte da base vermelha: a catraca da cobertura barra e o cache da PR não guarda essa base', { skip: pular }, () => {
+      const r = repo({
+        baseCobertura: { 'src/resto.js': [100, 20] },
+        baseFalha: true,
+        pr: (raiz) => escrever(raiz, { 'src/novo.js': 'export const novo = 1;\n' }),
+      });
+      try {
+        const job = rodar(r, { simulados: consumidor({ headCobertura: { 'src/resto.js': [100, 20], 'src/novo.js': [10, 10] } }) });
+        assert.equal(job.por('Catraca: suíte na base (sem cache)').outcome, 'failure');
+        assert.equal(rodou(job, 'Catraca: cache da cobertura da base (desta PR)'), false);
+        assert.equal(job.por('Catraca: cobertura').outcome, 'failure');
+        assert.match(job.relatorio, /a suíte da base falhou, então a cobertura dela não vale como referência/);
+        assert.match(job.final.saida, /Falhas: coverage/);
+      } finally {
+        r.limpar();
+      }
+    });
+
+    it('coverage-files-gate: o padrão (warn) deixa passar a PR que altera arquivo antigo abaixo do mínimo; error barra', { skip: pular }, () => {
+      const baseCobertura = { 'src/velho.js': [10, 2], 'src/resto.js': [190, 188] };
+      const pr = (raiz) => escrever(raiz, { 'src/velho.js': `${complexa('velha')}// mexido\n` });
+      const cenario = { simulados: consumidor({ headCobertura: baseCobertura }) };
+      for (const [inputs, esperado] of [[{}, 'success'], [{ 'coverage-files-gate': 'error' }, 'failure'], [{ 'coverage-files-gate': 'off' }, 'success']]) {
+        const r = repo({ baseCobertura, pr });
+        try {
+          const job = rodar(r, { ...cenario, inputs });
+          assert.equal(job.final.outcome, esperado, `${JSON.stringify(inputs)}: ${job.final.saida}`);
+          if (esperado === 'success' && !inputs['coverage-files-gate']) {
+            assert.match(job.relatorio, /\| Arquivos que a PR cria ou altera \| AVISO \|/);
+          }
+        } finally {
+          r.limpar();
+        }
+      }
+    });
+
+    it('push na main: publica a cobertura da main, sem catraca, e lint e cobertura do repo ficam informativos', { skip: pular }, () => {
+      const r = repo({ baseCobertura: { 'src/resto.js': [100, 20] }, pr: (raiz) => escrever(raiz, { 'src/novo.js': 'export const novo = 1;\n' }) });
+      try {
+        const job = rodar(r, {
+          evento: 'push',
+          simulados: { ...consumidor({ lint: 'failure', headCobertura: { 'src/resto.js': [100, 20] } }), 'Coverage gate (global)': { outcome: 'failure' } },
+        });
+        assert.equal(job.por('Catraca: preparar').outputs.publicar, 'true');
+        assert.equal(rodou(job, 'Catraca: base da PR'), false);
+        assert.equal(job.por('Catraca: publicar a cobertura da main').outcome, 'success');
+        assert.equal(rodou(job, 'Catraca: cache da cobertura da main (para as PRs)'), true);
+        assert.equal(rodou(job, 'Upsert PR comment'), false);
+        assert.equal(job.final.outcome, 'success', job.final.saida);
+      } finally {
+        r.limpar();
+      }
     });
   });
 
