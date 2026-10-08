@@ -55,6 +55,8 @@ O front tem segmentação fraca por bounded context — a maior parte do código
 
 Lista mantida em `vitest.config.ts` (`coverage.exclude`).
 
+**Na PR (catraca, padrão do `lyx-audit.yml`):** este gate do repo inteiro vira informativo, e quem barra a PR é a catraca: global que sai do mínimo (ou, em repo com dívida, cai mais de 0,1 ponto), arquivo que a PR cria ou altera abaixo do mínimo e erro de lint novo. Detalhe em [`TESTING.md`](TESTING.md#catraca-na-pr-padrão).
+
 **Fix típico pra coverage abaixo do threshold:**
 
 - Identificar funções puras em `src/lib/*` e `src/app/**/actions.ts` (lógica de validação Zod, transforms) sem `*.spec.ts`

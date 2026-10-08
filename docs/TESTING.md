@@ -7,7 +7,7 @@
 Tu vai escrever código que **outras pessoas vão mexer**. Sem teste, qualquer alteração futura pode quebrar comportamento que tu garantiu. Teste = documentação executável do que o código DEVE fazer.
 
 Na Lyx, **teste é obrigatório**:
-- Coverage gate de **75% lines / 40% branches** por repo (regra `error` — bloqueia merge se violar)
+- Coverage gate de **75% lines / 40% branches** (regra `error`, bloqueia merge). Na PR vale a catraca: barra o que a PR piora e o arquivo que ela cria ou altera abaixo do mínimo (ver [Catraca na PR](#catraca-na-pr-padrão))
 - Todo `*.service.ts` e `*.controller.ts` precisa de `*.spec.ts` sibling (regra ESLint `lyx/missing-spec`)
 - CI roda em cada PR (`pr.yml` importa `lyx-audit.yml` do template)
 
@@ -179,6 +179,28 @@ Arquivos **excluídos** do coverage (não contam pro denominator):
 - `src/**/types.ts`
 
 Ver `vitest.config.ts` pra lista completa.
+
+### Catraca na PR (padrão)
+
+Na PR, lint e cobertura cobram só o que a PR piora em relação à base dela. Repo com dívida antiga não deixa mais toda PR vermelha, e o que é novo continua no mínimo:
+
+- **Lint:** nenhum erro novo. O ESLint roda no head e na base; um erro é (arquivo, regra, mensagem com os números trocados por `#`), contado por quantidade. Erro que já existia na base não conta. Erro novo conta, mesmo em arquivo antigo.
+- **Cobertura global** (lines e branches): head no mínimo passa. Base no mínimo e head abaixo dele barra, como antes. Base já abaixo do mínimo (dívida): o head não pode cair mais de 0,1 ponto. Arquivo que a PR apaga sai da conta da base.
+- **Arquivo com lógica que a PR cria ou altera** (os mesmos excluídos de hoje ficam fora): precisa do mínimo de lines e de branches no próprio arquivo. Mexeu num arquivo antigo abaixo do mínimo: cubra o arquivo.
+
+Typecheck, testes e ciclos de import continuam absolutos. O comentário do bot mostra primeiro o gate da PR e, embaixo, a dívida do repo inteiro, como informativa. `ratchet: false` no `with:` volta ao gate absoluto do repo inteiro.
+
+**Custo.** Repo sem dívida não paga nada a mais. Com dívida de lint, o ESLint roda na base só nos arquivos com erro no head (segundos). Com dívida de cobertura, a catraca precisa da cobertura da base: vem do cache publicado pela main ou, sem ele, de uma rodada da suíte na base (uma suíte a mais por base em cada PR). Para a main publicar o cache, o `pr.yml` do repo também roda no push da main:
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+```
+
+Testes da catraca (no template): `node --test .github/lyx-audit/*.test.mjs`.
 
 ## Comandos canônicos
 

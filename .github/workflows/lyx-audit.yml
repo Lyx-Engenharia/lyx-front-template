@@ -24,6 +24,31 @@ name: Lyx Audit (reusable)
 #
 # Resultado: dev sempre recebe um comment no PR mostrando TUDO que falhou
 # (não só o primeiro). Sem early-exit que deixa o report mudo.
+#
+# ─── CATRACA (input `ratchet`, padrão true) ─────────────────────────────────
+# Na PR, lint e cobertura cobram só o que a PR piora em relação à base (HEAD^1
+# do merge que o checkout do pull_request entrega):
+#   - lint: erro novo conta, mesmo em arquivo antigo. Erro que já existia na
+#     base não conta. Identidade do erro: (arquivo, regra, mensagem com os
+#     números trocados por #), comparada por quantidade.
+#   - cobertura global (lines e branches): head no mínimo passa, como antes;
+#     base no mínimo e head abaixo barra, como antes; base já abaixo do mínimo
+#     (dívida): o head não pode cair mais de 0,1 ponto. Arquivo que a PR apaga
+#     sai da conta da base.
+#   - cada arquivo com lógica que a PR cria ou altera (os que aparecem no lcov,
+#     ou seja, os mesmos excluídos de hoje) precisa de coverage-lines nas linhas
+#     e coverage-branches nos branches.
+# A dívida do repo inteiro continua no comment, como informativa. Typecheck,
+# testes e ciclos de import seguem absolutos. ratchet: false volta ao gate
+# absoluto do repo inteiro.
+#
+# Custo: repo sem dívida não paga nada a mais (lint verde pula a catraca do lint;
+# cobertura no mínimo não precisa da base). Com dívida: o lint roda na base só
+# nos arquivos com erro no head (segundos), e a cobertura da base vem do cache
+# (da main, quando o consumidor também dispara este workflow no push da main, ou
+# de uma rodada anterior da mesma PR). Sem cache, a suíte roda uma vez na base:
+# uma suíte a mais por base em cada PR (no taskbuilder-front, ~35 s).
+# Scripts: .github/lyx-audit/ deste repo, no mesmo commit do workflow.
 # ───────────────────────────────────────────────────────────────────────────
 
 on:
@@ -66,6 +91,16 @@ on:
           suíte grande pode pedir 'ubuntu-4core' (runner da org, só repo privado).
         type: string
         default: 'ubuntu-latest'
+      ratchet:
+        description: >-
+          Catraca (padrão true): na PR, lint e cobertura barram só o que a PR
+          piora em relação à base (erro de lint novo; cobertura global que sai
+          do mínimo ou, se a base já estava abaixo dele, que cai mais de 0,1
+          ponto; arquivo com lógica que a PR cria ou altera abaixo de
+          coverage-lines/coverage-branches). A dívida antiga fica no relatório
+          como informativa. false = gate absoluto do repo inteiro, o de antes.
+        type: boolean
+        default: true
 
 permissions:
   pull-requests: write
@@ -81,14 +116,58 @@ jobs:
       AUDIT_BRANCHES_MIN: ${{ inputs.coverage-branches }}
       AUDIT_GATE_MODE: ${{ inputs.gate-mode }}
     steps:
-      # 1. Checkout do repo CONSUMIDOR
+      # 1. Checkout do repo CONSUMIDOR. fetch-depth 2: no pull_request o HEAD é o
+      # merge da PR na base e o HEAD^1 é a base exata que a catraca compara.
       - name: Checkout consumer repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       # (CONTRACT) O checkout do template em _lyx-audit/ foi REMOVIDO: os bins vêm
       # do pacote publicado @lyxai/front-audit (npx self-fetch via -p). Clonar o
       # template inteiro poluía o typecheck/vitest do consumidor (ex.: tsc batia em
       # _lyx-audit/packages/front-audit/tsup.config.ts → "Cannot find module 'tsup'").
+
+      # 2. Catraca: só os scripts .github/lyx-audit/*.mjs do template, no mesmo
+      # commit deste workflow (job.workflow_sha), e logo movidos para fora do
+      # workspace (RUNNER_TEMP), antes de qualquer lint/tsc/vitest do consumidor.
+      # No próprio template (dogfood) os scripts já estão no checkout.
+      - name: 'Catraca: scripts do template'
+        if: ${{ inputs.ratchet && job.workflow_repository != github.repository }}
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: ${{ job.workflow_repository || 'Lyx-Engenharia/lyx-front-template' }}
+          ref: ${{ job.workflow_sha || 'main' }}
+          path: .lyx-audit-template
+          sparse-checkout: .github/lyx-audit/*.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # Sem os scripts (falha de rede, por exemplo) a catraca fica desligada nesta
+      # rodada e o gate volta ao absoluto do repo inteiro, com aviso no log.
+      - name: 'Catraca: preparar'
+        id: catraca
+        if: ${{ inputs.ratchet }}
+        continue-on-error: true
+        env:
+          PROPRIO_TEMPLATE: ${{ job.workflow_repository == github.repository }}
+          EVENTO: ${{ github.event_name }}
+          BRANCH_PADRAO: ${{ github.event.repository.default_branch }}
+        run: |
+          trap 'rm -rf .lyx-audit-template' EXIT
+          origem=.lyx-audit-template/.github/lyx-audit
+          if [ "$PROPRIO_TEMPLATE" = "true" ]; then origem=.github/lyx-audit; fi
+          destino="$RUNNER_TEMP/lyx-audit/scripts"
+          mkdir -p "$destino"
+          cp "$origem"/*.mjs "$destino"/
+          test -f "$destino/catraca.mjs"
+          echo "LYX_AUDIT=$destino/catraca.mjs" >> "$GITHUB_ENV"
+          if [ "$EVENTO" = "pull_request" ]; then
+            echo "ativa=true" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENTO" = "push" ] && [ "$GITHUB_REF_NAME" = "$BRANCH_PADRAO" ]; then
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          fi
 
       # 3. Node + cache
       - uses: actions/setup-node@v4
@@ -110,6 +189,13 @@ jobs:
           else
             npm install --no-audit --no-fund
           fi
+
+      # Catraca: sha da base (HEAD^1 do merge) e o diff da PR (git diff -z -M).
+      - name: 'Catraca: base da PR'
+        id: base
+        if: ${{ steps.catraca.outputs.ativa == 'true' }}
+        continue-on-error: true
+        run: node "$LYX_AUDIT" base --alterados "$RUNNER_TEMP/lyx-audit/alterados.z" >> "$GITHUB_OUTPUT"
 
       # 5. Lint
       - name: Lint
@@ -145,10 +231,14 @@ jobs:
       # 8. Coverage gate — bin do pacote publicado @lyxai/front-audit.
       # `npx -p <pacote> <bin>` porque o nome do bin (lyx-coverage-gate) != nome do
       # pacote; `npx` faz self-fetch público, então roda mesmo em front não-migrado.
+      # Com a catraca ligada este gate do repo inteiro é informativo (modo warn):
+      # alimenta a seção de dívida do relatório, e quem barra é a catraca.
       - name: Coverage gate (global)
         id: coverage_gate
         if: ${{ always() && steps.tests.outcome != 'skipped' }}
         run: npx -y -p @lyxai/front-audit@^0 lyx-coverage-gate
+        env:
+          AUDIT_GATE_MODE: ${{ (steps.catraca.outputs.ativa == 'true' || steps.catraca.outputs.publicar == 'true') && 'warn' || inputs.gate-mode }}
         continue-on-error: true
 
       # 9. Dependency check (opcional)
@@ -176,17 +266,136 @@ jobs:
         run: npx depcruise src --config .dependency-cruiser.cjs --output-type=json --output-to=audit/depcruise.json
         continue-on-error: true
 
+      # Catraca do lint: só quando o lint do repo inteiro falhou (lint verde =
+      # nenhum erro, nada a comparar). Na base roda só nos arquivos com erro no
+      # head, numa worktree fora do workspace, com o node_modules do head.
+      - name: 'Catraca: lint (erros novos)'
+        id: catraca_lint
+        if: ${{ always() && steps.catraca.outputs.ativa == 'true' && steps.lint.outcome == 'failure' }}
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+        run: |
+          base_dir="$RUNNER_TEMP/lyx-audit/base"
+          if [ -n "$BASE_SHA" ]; then
+            node "$LYX_AUDIT" preparar-base --sha "$BASE_SHA" --dir "$base_dir" --deps link \
+              || echo "::warning::Catraca: a worktree da base não montou. Todo erro de lint conta como novo."
+          fi
+          node "$LYX_AUDIT" lint --eslint audit/eslint.json --alterados "$RUNNER_TEMP/lyx-audit/alterados.z" \
+            --base-dir "$base_dir" --saida audit/catraca-lint.json
+
+      # Catraca da cobertura. A base só é medida quando o head está abaixo do
+      # mínimo (repo sem dívida não paga nada). Ordem: cache da main (publicado
+      # no push, abaixo) ou desta PR; sem cache, uma rodada da suíte na base.
+      - name: 'Catraca: cobertura da base é necessária?'
+        id: precisa
+        if: ${{ always() && steps.catraca.outputs.ativa == 'true' && steps.base.outputs.disponivel == 'true' && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure') }}
+        continue-on-error: true
+        run: node "$LYX_AUDIT" precisa-base --lcov coverage/lcov.info >> "$GITHUB_OUTPUT"
+
+      - name: 'Catraca: cobertura da base (cache)'
+        id: cache_base
+        if: ${{ always() && steps.precisa.outputs.precisa == 'true' }}
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/lyx-audit/cobertura-base/coverage-summary.json
+          key: lyx-audit-cobertura-v1-${{ steps.base.outputs.sha }}
+
+      - name: 'Catraca: suíte na base (sem cache)'
+        id: suite_base
+        if: ${{ always() && steps.precisa.outputs.precisa == 'true' && steps.cache_base.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+        run: |
+          base_dir="$RUNNER_TEMP/lyx-audit/base"
+          node "$LYX_AUDIT" preparar-base --sha "$BASE_SHA" --dir "$base_dir" --deps auto
+          node "$LYX_AUDIT" cobertura-base --dir "$base_dir" \
+            --saida "$RUNNER_TEMP/lyx-audit/cobertura-base/coverage-summary.json"
+
+      # Próximos pushes desta PR com a mesma base não rodam a suíte da base de novo.
+      - name: 'Catraca: cache da cobertura da base (desta PR)'
+        if: ${{ always() && steps.suite_base.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/lyx-audit/cobertura-base/coverage-summary.json
+          key: lyx-audit-cobertura-v1-${{ steps.base.outputs.sha }}
+
+      - name: 'Catraca: cobertura'
+        id: catraca_cobertura
+        if: ${{ always() && steps.catraca.outputs.ativa == 'true' && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure') }}
+        continue-on-error: true
+        run: >-
+          node "$LYX_AUDIT" cobertura --lcov coverage/lcov.info
+          --base-resumo "$RUNNER_TEMP/lyx-audit/cobertura-base/coverage-summary.json"
+          --alterados "$RUNNER_TEMP/lyx-audit/alterados.z"
+          --saida audit/catraca-cobertura.json
+
+      # Push na branch padrão (o consumidor que quiser adiciona `push: branches:
+      # [main]` no pr.yml): publica o coverage-summary da main. As PRs leem pelo
+      # cache, que não pede permissão nova; o artefato (coverage-summary) fica
+      # para consulta. Ler artefato de outra run exigiria `actions: read` no
+      # token, e pedir isso aqui quebraria todo consumidor que não concede.
+      - name: 'Catraca: publicar a cobertura da main'
+        id: publicar
+        if: ${{ always() && steps.catraca.outputs.publicar == 'true' && steps.tests.outcome == 'success' }}
+        continue-on-error: true
+        run: node "$LYX_AUDIT" resumo --lcov coverage/lcov.info --saida "$RUNNER_TEMP/lyx-audit/cobertura-base/coverage-summary.json"
+
+      - name: 'Catraca: cache da cobertura da main (para as PRs)'
+        if: ${{ always() && steps.publicar.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/lyx-audit/cobertura-base/coverage-summary.json
+          key: lyx-audit-cobertura-v1-${{ github.sha }}
+
+      - name: 'Catraca: artefato coverage-summary'
+        if: ${{ always() && steps.publicar.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: ${{ runner.temp }}/lyx-audit/cobertura-base/coverage-summary.json
+          retention-days: 7
+
       # 11. Gerar markdown report (sempre) — bin do pacote, fallback pro script clonado.
+      # Vai para report-repo.md: com a catraca ele vira a seção de dívida do repo.
       - name: Gerar markdown report
         if: always()
-        run: npx -y -p @lyxai/front-audit@^0 lyx-audit-report > audit/report.md
+        run: npx -y -p @lyxai/front-audit@^0 lyx-audit-report > audit/report-repo.md
         env:
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         continue-on-error: true
 
-      # 12. Upsert PR comment (sempre)
-      - name: Upsert PR comment
+      # Com a catraca: gate desta PR primeiro, dívida do repo inteiro depois
+      # (informativa). Sem a catraca: o relatório do pacote, como antes.
+      - name: 'Relatório: gate da PR e dívida do repo'
         if: always()
+        continue-on-error: true
+        env:
+          CATRACA_ATIVA: ${{ steps.catraca.outputs.ativa }}
+          LYX_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          LYX_BASE_SHA: ${{ steps.base.outputs.sha }}
+          LYX_BASE_DISPONIVEL: ${{ steps.base.outputs.disponivel }}
+          LYX_BASE_MOTIVO: ${{ steps.base.outputs.motivo }}
+          LINT: ${{ steps.lint.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          DEPS: ${{ steps.deps_check.outcome }}
+        run: |
+          if [ "$CATRACA_ATIVA" = "true" ] && node "$LYX_AUDIT" relatorio --repo audit/report-repo.md \
+              --lint audit/catraca-lint.json --cobertura audit/catraca-cobertura.json > audit/report.md; then
+            echo "Relatório com a catraca."
+          else
+            cp audit/report-repo.md audit/report.md 2>/dev/null || true
+          fi
+
+      # 12. Upsert PR comment (sempre que houver PR; no push da main não há onde comentar)
+      - name: Upsert PR comment
+        if: ${{ always() && github.event_name == 'pull_request' }}
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -212,6 +421,13 @@ jobs:
           fi
         continue-on-error: true
 
+      # O mesmo relatório no resumo da run (único lugar dele no push da main).
+      - name: Relatório no resumo da run
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ -s audit/report.md ]; then cat audit/report.md >> "$GITHUB_STEP_SUMMARY"; fi
+
       # 13. Upload coverage como artifact (debug)
       # Só o lcov: o HTML do report pesa dezenas de MB, sobe em toda run dos 22
       # repos e ninguém o abre por aqui (o coverage gate já diz o que falta).
@@ -221,7 +437,7 @@ jobs:
         if: ${{ always() && steps.tests.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-pr-${{ github.event.pull_request.number }}
+          name: coverage-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.ref_name }}
           path: coverage/lcov.info
           retention-days: 2
 
@@ -238,8 +454,38 @@ jobs:
           COVERAGE: ${{ steps.coverage_gate.outcome }}
           DEPS: ${{ steps.deps_check.outcome }}
           GATE_MODE: ${{ inputs.gate-mode }}
+          CATRACA_PEDIDA: ${{ inputs.ratchet }}
+          CATRACA_ATIVA: ${{ steps.catraca.outputs.ativa }}
+          CATRACA_PUBLICAR: ${{ steps.catraca.outputs.publicar }}
+          CATRACA_LINT: ${{ steps.catraca_lint.outcome }}
+          CATRACA_COBERTURA: ${{ steps.catraca_cobertura.outcome }}
+          EVENTO: ${{ github.event_name }}
         run: |
+          # Com a catraca ativa (PR), lint e cobertura valem pelo que a PR piora:
+          # lint verde passa direto; lint vermelho vale o resultado da catraca.
+          # Catraca que não rodou ou não chegou a um resultado conta como falha.
+          # No push da main (publicação) lint e cobertura são informativos.
+          if [ "$CATRACA_ATIVA" = "true" ]; then
+            MODO="catraca (só o que a PR piora)"
+            if [ "$LINT" = "failure" ]; then
+              [ "$CATRACA_LINT" = "success" ] && LINT="success" || LINT="failure"
+            fi
+            if [ "$TESTS" = "success" ] || [ "$TESTS" = "failure" ]; then
+              [ "$CATRACA_COBERTURA" = "success" ] && COVERAGE="success" || COVERAGE="failure"
+            fi
+          elif [ "$CATRACA_PUBLICAR" = "true" ]; then
+            MODO="publicação da cobertura da main (lint e cobertura informativos)"
+            LINT="informativo ($LINT)"
+            COVERAGE="informativo ($COVERAGE)"
+          else
+            MODO="absoluto (repo inteiro)"
+            if [ "$CATRACA_PEDIDA" = "true" ] && [ "$EVENTO" = "pull_request" ]; then
+              echo "::warning::Catraca pedida, mas os scripts do template não carregaram: gate absoluto nesta rodada."
+            fi
+          fi
+
           echo "=== Resultados ==="
+          echo "Modo:           $MODO"
           echo "Lint:           $LINT"
           echo "Typecheck:      $TYPECHECK"
           if [ "$TESTS" = "skipped" ]; then
