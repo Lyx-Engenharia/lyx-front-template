@@ -127,7 +127,7 @@ function secaoArquivos(cobertura) {
     linhas.push('', '#### Arquivos abaixo do mínimo', '', '| Arquivo | Lines | Branches |', '|---|---|---|', ...cortar(itens, 'arquivos'));
   }
   if (fora.length > 0) {
-    linhas.push('', `_${plural(fora.length, 'arquivo de código alterado fica', 'arquivos de código alterados ficam')} fora da cobertura (o coverage do vitest.config exclui: specs, páginas, tipos, ui)._`);
+    linhas.push('', `_${plural(fora.length, 'arquivo de código alterado fica', 'arquivos de código alterados ficam')} fora da cobertura (fora do include ou no exclude do coverage no vitest.config: specs, páginas, tipos, ui, scripts)._`);
   }
   const removidos = cobertura?.removidosDaBase ?? [];
   if (removidos.length > 0) {
@@ -140,10 +140,9 @@ function linhaDividaPorArquivo(cobertura) {
   const divida = cobertura?.dividaPorArquivo;
   if (!divida || divida.total === 0) return [];
   const { linhas, branches } = cobertura.limites;
-  return [
-    `Arquivos com lógica abaixo de ${linhas}% lines ou ${branches}% branches: ${divida.abaixo} de ${divida.total}. Cada um passa a ser cobrado quando uma PR o cria ou altera.`,
-    '',
-  ];
+  const rotulo = `Arquivos com lógica abaixo de ${linhas}% lines ou ${branches}% branches`;
+  if (divida.abaixo === 0) return [`${rotulo}: nenhum dos ${divida.total}.`, ''];
+  return [`${rotulo}: ${divida.abaixo} de ${divida.total}. Cada um passa a ser cobrado quando uma PR o cria ou altera.`, ''];
 }
 
 /**

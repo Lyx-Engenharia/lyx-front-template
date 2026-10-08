@@ -162,6 +162,17 @@ describe('relatorio', () => {
       );
     });
 
+    it('repo sem dívida por arquivo: diz que nenhum está abaixo, sem falar em cobrança', () => {
+      const md = relatorio({ cobertura: { ...COBERTURA_RUIM, dividaPorArquivo: { abaixo: 0, total: 5 } } });
+      assert.match(md, /Arquivos com lógica abaixo de 75% lines ou 40% branches: nenhum dos 5\./);
+      assert.doesNotMatch(md, /Cada um passa a ser cobrado/);
+    });
+
+    it('arquivo de código fora da cobertura é explicado pelo include e exclude do coverage', () => {
+      const md = relatorio();
+      assert.match(md, /1 arquivo de código alterado fica fora da cobertura \(fora do include ou no exclude do coverage no vitest\.config: specs, páginas, tipos, ui, scripts\)\./);
+    });
+
     it('lista longa é cortada para o comentário caber no limite do GitHub', () => {
       const novos = Array.from({ length: 45 }, (_, i) => ({ ...LINT_COM_NOVOS.novos[0], arquivo: `src/a${i}.ts` }));
       const md = relatorio({ lint: { ...LINT_COM_NOVOS, novos } });
