@@ -60,7 +60,7 @@ const PR = {
 
 describe('lyx-audit.yml', () => {
   describe('Avaliar status final', () => {
-    it('taskbuilder, PR boa: lint e cobertura do repo vermelhos, catraca verde, job verde', () => {
+    it('front com dívida, PR boa: lint e cobertura do repo vermelhos, catraca verde, job verde', () => {
       const r = avaliar({ ...PR, LINT: 'failure', COVERAGE: 'success', CATRACA_ATIVA: 'true', CATRACA_LINT: 'success', CATRACA_COBERTURA: 'success' });
       assert.equal(r.status, 0, r.saida);
       assert.match(r.saida, /Tudo verde/);

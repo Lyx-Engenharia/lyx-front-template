@@ -9,8 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { GIT_ENV, escrever, git, pastaTemporaria, repoComPrMergeada } from './apoio-teste.mjs';
 
 const CLI = fileURLToPath(new URL('./catraca.mjs', import.meta.url));
-const FIX = fileURLToPath(new URL('./fixtures/taskbuilder/', import.meta.url));
-const RAIZ_TB = '/home/runner/work/lyx-taskbuilder-front/lyx-taskbuilder-front';
+// Fixtures sintéticos de um front com dívida (caminhos, nomes e números inventados).
+const FIX = fileURLToPath(new URL('./fixtures/front-sintetico/', import.meta.url));
+const RAIZ_HEAD = '/home/runner/work/front-exemplo/front-exemplo';
 
 function catraca(cwd, args, env = {}) {
   const r = spawnSync(process.execPath, [CLI, ...args], {
@@ -36,7 +37,7 @@ const complexa = (nome) => `export function ${nome}(a, b) {\n  if (a) return 1;\
 
 describe('catraca (CLI)', () => {
   describe('cobertura', () => {
-    it('taskbuilder, PR ruim: sai 1 e grava o motivo', () => {
+    it('front com dívida, PR ruim: sai 1 e grava o motivo', () => {
       const pasta = pastaTemporaria('cob');
       try {
         const saida = join(pasta, 'catraca-cobertura.json');
@@ -44,7 +45,7 @@ describe('catraca (CLI)', () => {
           'cobertura',
           '--resumo-head', join(FIX, 'pr-ruim.coverage-summary.json'),
           '--base-resumo', join(FIX, 'main.coverage-summary.json'),
-          '--raiz', RAIZ_TB,
+          '--raiz', RAIZ_HEAD,
           '--alterados', join(FIX, 'pr-ruim.alterados.z'),
           '--saida', saida,
         ]);
@@ -58,14 +59,14 @@ describe('catraca (CLI)', () => {
       }
     });
 
-    it('taskbuilder, PR boa: sai 0 mesmo com o repo a 14% de cobertura', () => {
+    it('front com dívida, PR boa: sai 0 mesmo com o repo a 16% de cobertura', () => {
       const pasta = pastaTemporaria('cob');
       try {
         const r = catraca(pasta, [
           'cobertura',
           '--resumo-head', join(FIX, 'pr-boa.coverage-summary.json'),
           '--base-resumo', join(FIX, 'main.coverage-summary.json'),
-          '--raiz', RAIZ_TB,
+          '--raiz', RAIZ_HEAD,
           '--alterados', join(FIX, 'pr-boa.alterados.z'),
           '--saida', join(pasta, 'c.json'),
         ]);
@@ -129,7 +130,7 @@ describe('catraca (CLI)', () => {
     it('base medida com teste falhando: barra o head abaixo do mínimo, mesmo caindo menos de 0,1', () => {
       const pasta = pastaTemporaria('cob');
       try {
-        // A base "vermelha" mediu 14,57% (o mesmo número da main do taskbuilder), com a marca da suíte.
+        // A base "vermelha" mediu 16,29% (o mesmo número da main do fixture), com a marca da suíte.
         const base = JSON.parse(readFileSync(join(FIX, 'main.coverage-summary.json'), 'utf8'));
         base['#lyx-audit'] = { suiteDaBase: 'falhou' };
         writeFileSync(join(pasta, 'base.json'), JSON.stringify(base));
@@ -138,7 +139,7 @@ describe('catraca (CLI)', () => {
           'cobertura',
           '--resumo-head', join(FIX, 'pr-boa.coverage-summary.json'),
           '--base-resumo', join(pasta, 'base.json'),
-          '--raiz', RAIZ_TB,
+          '--raiz', RAIZ_HEAD,
           '--alterados', join(FIX, 'pr-boa.alterados.z'),
           '--saida', saida,
         ]);
@@ -158,7 +159,7 @@ describe('catraca (CLI)', () => {
           'cobertura',
           '--resumo-head', join(FIX, 'pr-boa.coverage-summary.json'),
           '--base-resumo', join(pasta, 'nao-existe.json'),
-          '--raiz', RAIZ_TB,
+          '--raiz', RAIZ_HEAD,
           '--alterados', join(FIX, 'pr-boa.alterados.z'),
           '--saida', join(pasta, 'c.json'),
         ]);

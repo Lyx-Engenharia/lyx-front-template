@@ -47,9 +47,10 @@ jobs:
 
   catraca-tests:
     # Específico do TEMPLATE (não vai pros outros repos). Testes dos scripts da
-    # catraca do lyx-audit.yml (.github/lyx-audit/), com fixtures reais do
-    # lyx-taskbuilder-front. node:test puro; o npm ci traz o ESLint que o teste
-    # de ponta a ponta do lint usa.
+    # catraca do lyx-audit.yml (.github/lyx-audit/), com fixtures sintéticos de
+    # um front com dívida (formato real do ESLint, do vitest e do git; caminhos,
+    # nomes e números inventados). node:test puro; o npm ci traz o ESLint que o
+    # teste de ponta a ponta do lint usa.
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

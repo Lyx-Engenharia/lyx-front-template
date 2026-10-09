@@ -18,7 +18,7 @@ const RELATORIO_DO_REPO = [
   '### Hotspots ESLint',
   '',
   '#### `complexity` (22 ocorrências)',
-  "- `src/lib/queries.ts:193` \u2014 Function 'normalizeDoc' has a complexity of 31. Maximum allowed is 12.",
+  "- `src/lib/consultas.ts:193` \u2014 Function 'normalizarItem' has a complexity of 31. Maximum allowed is 12.",
 ].join('\n');
 
 const LINT_COM_NOVOS = {
@@ -29,8 +29,8 @@ const LINT_COM_NOVOS = {
   existentes: 60,
   corrigidos: 0,
   novos: [
-    { arquivo: 'src/app/dashboard/[sectorId]/painel/painel.helpers.ts', regra: 'complexity', mensagem: "Function 'corDoIndicador' has a complexity of 15. Maximum allowed is 12.", linhas: [2], noHead: 1, naBase: 0, novos: 1 },
-    { arquivo: 'src/stores/useMindMapStore.ts', regra: 'max-lines-per-function', mensagem: 'Arrow function has too many lines (109). Maximum allowed is 80.', linhas: [20, 172, 173], noHead: 3, naBase: 1, novos: 2 },
+    { arquivo: 'src/app/painel/[equipeId]/resumo/resumo.helpers.ts', regra: 'complexity', mensagem: "Function 'corDoResumo' has a complexity of 15. Maximum allowed is 12.", linhas: [2], noHead: 1, naBase: 0, novos: 1 },
+    { arquivo: 'src/stores/useQuadroStore.ts', regra: 'max-lines-per-function', mensagem: 'Arrow function has too many lines (109). Maximum allowed is 80.', linhas: [20, 172, 173], noHead: 3, naBase: 1, novos: 2 },
   ],
 };
 
@@ -45,7 +45,7 @@ const COBERTURA_RUIM = {
     branches: { head: 14.4792, base: 14.5871, minimo: 40, status: 'queda', queda: 0.1079 },
   },
   arquivos: [
-    { arquivo: 'src/lib/format.ts', linhas: 42.1, branches: 39.7, linhasOk: false, branchesOk: true, passou: false },
+    { arquivo: 'src/lib/formato.ts', linhas: 42.1, branches: 39.7, linhasOk: false, branchesOk: true, passou: false },
     { arquivo: 'src/lib/soma.ts', linhas: 100, branches: 100, linhasOk: true, branchesOk: true, passou: true },
   ],
   foraDaCobertura: ['src/lib/soma.spec.ts'],
@@ -77,9 +77,9 @@ describe('relatorio', () => {
       assert.match(md, /\| Lint \(erros novos\) \| FAIL \| 3 erros novos · 60 já existiam na base \|/);
       assert.match(md, /\| Cobertura global \(lines\) \| FAIL \| 14,30% \(base 14,57%\): caiu 0,27 ponto/);
       assert.match(md, /\| Arquivos que a PR cria ou altera \| FAIL \| 1 de 2 abaixo de 75% lines ou 40% branches \|/);
-      assert.match(md, /`src\/stores\/useMindMapStore.ts:20, 172, 173` · `max-lines-per-function` · .*\(2 novos: 3 no head, 1 na base\)/);
+      assert.match(md, /`src\/stores\/useQuadroStore.ts:20, 172, 173` · `max-lines-per-function` · .*\(2 novos: 3 no head, 1 na base\)/);
       // Por arquivo vale o arredondamento do gate de hoje: mostra inteiro, e o mínimo só na métrica que falhou.
-      assert.match(md, /\| `src\/lib\/format.ts` \| 42% \(mínimo 75%\) \| 40% \|/);
+      assert.match(md, /\| `src\/lib\/formato.ts` \| 42% \(mínimo 75%\) \| 40% \|/);
     });
 
     it('a dívida do repo inteiro continua no relatório, marcada como informativa', () => {
@@ -88,7 +88,7 @@ describe('relatorio', () => {
       assert.ok(i > 0);
       assert.ok(md.indexOf('Gate desta PR') < i, 'o gate vem antes da dívida');
       assert.match(md.slice(i), /#### Resumo/);
-      assert.match(md.slice(i), /normalizeDoc/);
+      assert.match(md.slice(i), /normalizarItem/);
       assert.ok(!md.slice(i).includes('## Audit Report'), 'sem o título duplicado do relatório do pacote');
     });
 
@@ -151,7 +151,7 @@ describe('relatorio', () => {
       const md = relatorio();
       assert.ok(!/[\u2013\u2014]/.test(md), 'nenhum travessão no comentário');
       assert.match(md, /\| Cobertura \(lines, global\) \| FAIL \| 14%: gate >= 75% \(modo warn\) \|/);
-      assert.match(md, /- `src\/lib\/queries.ts:193`: Function 'normalizeDoc'/);
+      assert.match(md, /- `src\/lib\/consultas.ts:193`: Function 'normalizarItem'/);
     });
 
     it('a dívida por arquivo do repo inteiro aparece na seção informativa', () => {

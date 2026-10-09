@@ -9,9 +9,11 @@ import {
 } from './lint.mjs';
 import { parseNameStatusZ } from './git.mjs';
 
-const FIX = new URL('./fixtures/taskbuilder/', import.meta.url);
-const RAIZ_HEAD = '/home/runner/work/lyx-taskbuilder-front/lyx-taskbuilder-front';
-const RAIZ_BASE = '/home/runner/work/_temp/lyx-base';
+// Fixtures sintéticos de um front com dívida: formato real do ESLint 9 e do git diff -z,
+// com caminhos, nomes e números inventados.
+const FIX = new URL('./fixtures/front-sintetico/', import.meta.url);
+const RAIZ_HEAD = '/home/runner/work/front-exemplo/front-exemplo';
+const RAIZ_BASE = '/home/runner/work/_temp/lyx-audit/base';
 
 function fixture(nome) {
   return JSON.parse(readFileSync(new URL(nome, FIX), 'utf8'));
@@ -27,8 +29,8 @@ describe('lint', () => {
   describe('normalizarMensagem', () => {
     it('troca números por # (a mesma função com outro tamanho continua sendo a mesma dívida)', () => {
       assert.equal(
-        normalizarMensagem("Function 'WeeklyClient' has too many lines (360). Maximum allowed is 80."),
-        "Function 'WeeklyClient' has too many lines (#). Maximum allowed is #.",
+        normalizarMensagem("Function 'ComponenteA' has too many lines (360). Maximum allowed is 80."),
+        "Function 'ComponenteA' has too many lines (#). Maximum allowed is #.",
       );
     });
 
@@ -48,11 +50,11 @@ describe('lint', () => {
   });
 
   describe('errosDoEslint', () => {
-    it('lê o JSON real do taskbuilder-front: 60 erros na main, warnings fora, caminho relativo', () => {
+    it('lê o JSON do ESLint 9 de um front com dívida: 60 erros na main, warnings fora, caminho relativo', () => {
       const erros = errosDoEslint(fixture('main.eslint.json'), RAIZ_BASE);
       assert.equal(erros.length, 60);
       assert.ok(erros.every((e) => !e.arquivo.startsWith('/')));
-      assert.ok(erros.some((e) => e.arquivo === 'src/app/dashboard/[sectorId]/weekly/weekly-client.tsx'));
+      assert.ok(erros.some((e) => e.arquivo === 'src/app/painel/[equipeId]/agenda/agenda-cliente.tsx'));
       assert.ok(!erros.some((e) => e.regra === 'react-hooks/set-state-in-effect'), 'warning não é erro');
     });
 
@@ -66,7 +68,7 @@ describe('lint', () => {
   });
 
   describe('compararErros', () => {
-    it('taskbuilder, PR boa: os 60 erros da main não contam, nem os do arquivo renomeado', () => {
+    it('front com dívida, PR boa: os 60 erros da main não contam, nem os do arquivo renomeado', () => {
       const r = compararErros(
         errosDoEslint(fixture('pr-boa.eslint.json'), RAIZ_HEAD),
         errosDoEslint(fixture('main.eslint.json'), RAIZ_BASE),
@@ -77,7 +79,7 @@ describe('lint', () => {
       assert.deepEqual(r.novos, []);
     });
 
-    it('taskbuilder, PR ruim: só os 4 erros que a PR criou contam, inclusive em arquivo antigo', () => {
+    it('front com dívida, PR ruim: só os 4 erros que a PR criou contam, inclusive em arquivo antigo', () => {
       const r = compararErros(
         errosDoEslint(fixture('pr-ruim.eslint.json'), RAIZ_HEAD),
         errosDoEslint(fixture('main.eslint.json'), RAIZ_BASE),
@@ -86,13 +88,13 @@ describe('lint', () => {
       assert.equal(r.totalHead, 64);
       const novos = r.novos.map((g) => [g.arquivo, g.regra, g.novos]);
       assert.deepEqual(novos, [
-        ['src/app/dashboard/[sectorId]/painel/painel.helpers.ts', 'complexity', 1],
-        ['src/lib/format.ts', 'complexity', 1],
-        ['src/stores/useMindMapStore.ts', 'max-lines-per-function', 2],
+        ['src/app/painel/[equipeId]/resumo/resumo.helpers.ts', 'complexity', 1],
+        ['src/lib/formato.ts', 'complexity', 1],
+        ['src/stores/useQuadroStore.ts', 'max-lines-per-function', 2],
       ]);
       assert.equal(r.novos.reduce((s, g) => s + g.novos, 0), 4);
-      // queries.ts: "File has too many lines (1173)" era 1168 na base. Mesmo erro.
-      assert.ok(!r.novos.some((g) => g.arquivo === 'src/lib/queries.ts'));
+      // consultas.ts: "File has too many lines (974)" era 969 na base. Mesmo erro.
+      assert.ok(!r.novos.some((g) => g.arquivo === 'src/lib/consultas.ts'));
     });
 
     it('a mesma mensagem repetida conta pela quantidade (1 na base, 3 no head = 2 novos)', () => {
@@ -154,10 +156,10 @@ describe('lint', () => {
   describe('arquivosParaLintDaBase', () => {
     it('lista só os arquivos com erro no head, no caminho da base, sem os criados pela PR', () => {
       const lista = arquivosParaLintDaBase(errosDoEslint(fixture('pr-ruim.eslint.json'), RAIZ_HEAD), alterados('pr-ruim.alterados.z'));
-      assert.ok(lista.includes('src/components/bonus/bonus-page.tsx'), 'renomeado: lint no caminho antigo');
-      assert.ok(!lista.includes('src/components/bonus/pagina-bonus.tsx'));
-      assert.ok(!lista.includes('src/app/dashboard/[sectorId]/painel/painel.helpers.ts'), 'criado na PR');
-      assert.ok(lista.includes('src/app/dashboard/[sectorId]/weekly/weekly-client.tsx'), 'caminho com colchetes');
+      assert.ok(lista.includes('src/components/metas/metas-pagina.tsx'), 'renomeado: lint no caminho antigo');
+      assert.ok(!lista.includes('src/components/metas/pagina-metas.tsx'));
+      assert.ok(!lista.includes('src/app/painel/[equipeId]/resumo/resumo.helpers.ts'), 'criado na PR');
+      assert.ok(lista.includes('src/app/painel/[equipeId]/agenda/agenda-cliente.tsx'), 'caminho com colchetes');
       assert.equal(new Set(lista).size, lista.length);
     });
   });

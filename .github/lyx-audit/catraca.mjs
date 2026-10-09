@@ -116,7 +116,7 @@ function binarioEslint(dir) {
 
 /**
  * ESLint na worktree da base, só nos arquivos com erro no head. Os caminhos vão
- * como argumento do processo, sem shell: `[sectorId]` não vira glob, e o ESLint 9
+ * como argumento do processo, sem shell: `[equipeId]` não vira glob, e o ESLint 9
  * trata caminho de arquivo que existe como arquivo (não como padrão).
  */
 function lintarNaBase(dir, arquivos) {

@@ -14,26 +14,27 @@ import {
 } from './git.mjs';
 import { GIT_ENV, escrever, git, npmOffline, repoComPrMergeada } from './apoio-teste.mjs';
 
-const FIX = new URL('./fixtures/taskbuilder/', import.meta.url);
+// Fixture sintético: o formato do git diff --name-status -z -M, com caminhos inventados.
+const FIX = new URL('./fixtures/front-sintetico/', import.meta.url);
 const LOCK_DO_TEMPLATE = new URL('../../package-lock.json', import.meta.url);
 
 describe('git', () => {
   describe('parseNameStatusZ', () => {
-    it('lê a saída real do git diff --name-status -z -M da PR do taskbuilder (colchetes e rename)', () => {
+    it('lê a saída do git diff --name-status -z -M de uma PR (colchetes e rename)', () => {
       const a = parseNameStatusZ(readFileSync(new URL('pr-ruim.alterados.z', FIX)));
       assert.deepEqual(a.criados, [
-        'src/app/dashboard/[sectorId]/painel/painel.helpers.ts',
+        'src/app/painel/[equipeId]/resumo/resumo.helpers.ts',
         'src/lib/soma.spec.ts',
         'src/lib/soma.ts',
       ]);
       assert.deepEqual(a.modificados, [
-        'src/app/dashboard/[sectorId]/bonus/page.tsx',
-        'src/lib/format.ts',
-        'src/lib/queries.ts',
-        'src/stores/useMindMapStore.ts',
+        'src/app/painel/[equipeId]/metas/page.tsx',
+        'src/lib/consultas.ts',
+        'src/lib/formato.ts',
+        'src/stores/useQuadroStore.ts',
       ]);
       assert.deepEqual(a.renomeados, [
-        { de: 'src/components/bonus/bonus-page.tsx', para: 'src/components/bonus/pagina-bonus.tsx', similaridade: 100 },
+        { de: 'src/components/metas/metas-pagina.tsx', para: 'src/components/metas/pagina-metas.tsx', similaridade: 100 },
       ]);
       assert.deepEqual(a.removidos, []);
     });

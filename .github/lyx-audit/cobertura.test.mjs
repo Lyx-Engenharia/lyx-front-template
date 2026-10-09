@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 import { avaliarCobertura, lerLcov, lerResumo, paraResumo, pct, precisaDaBase } from './cobertura.mjs';
 import { parseNameStatusZ } from './git.mjs';
 
-const FIX = new URL('./fixtures/taskbuilder/', import.meta.url);
-const RAIZ = '/home/runner/work/lyx-taskbuilder-front/lyx-taskbuilder-front';
+// Fixtures sintéticos de um front com dívida: formato real do json-summary do vitest, do
+// lcov e do git diff -z, com caminhos, nomes e números inventados.
+const FIX = new URL('./fixtures/front-sintetico/', import.meta.url);
+const RAIZ = '/home/runner/work/front-exemplo/front-exemplo';
 const LIMITES = { linhas: 75, branches: 40 };
 
 function resumo(nome) {
@@ -30,12 +32,12 @@ function soModificados(...caminhos) {
 
 describe('cobertura', () => {
   describe('lerResumo', () => {
-    it('lê o coverage-summary.json real do vitest (taskbuilder main) com chave absoluta', () => {
+    it('lê o coverage-summary.json do vitest (main de um front com dívida) com chave absoluta', () => {
       const c = resumo('main.coverage-summary.json');
-      assert.deepEqual(c.total.linhas, { total: 4962, cobertas: 723 });
-      assert.deepEqual(c.total.branches, { total: 4456, cobertas: 650 });
-      assert.ok(c.arquivos['src/lib/format.ts']);
-      assert.ok(c.arquivos['src/app/dashboard/[sectorId]/timeline/timeline.helpers.ts']);
+      assert.deepEqual(c.total.linhas, { total: 6059, cobertas: 987 });
+      assert.deepEqual(c.total.branches, { total: 3720, cobertas: 621 });
+      assert.ok(c.arquivos['src/lib/formato.ts']);
+      assert.ok(c.arquivos['src/app/painel/[equipeId]/linha/linha.helpers.ts']);
       assert.equal(Object.keys(c.arquivos).length, 163);
     });
 
@@ -55,7 +57,7 @@ describe('cobertura', () => {
   });
 
   describe('lerLcov', () => {
-    it('bate com o coverage-summary do vitest na mesma rodada (trecho real do lcov do taskbuilder)', () => {
+    it('bate com o coverage-summary do vitest na mesma rodada (trecho do lcov da PR ruim)', () => {
       const lcov = lerLcov(readFileSync(new URL('pr-ruim.lcov-trecho.info', FIX), 'utf8'));
       const vitest = resumo('pr-ruim.coverage-summary.json');
       assert.equal(Object.keys(lcov.arquivos).length, 7);
@@ -83,7 +85,7 @@ describe('cobertura', () => {
   });
 
   describe('avaliarCobertura', () => {
-    it('taskbuilder, PR boa: global sobe e os arquivos com lógica alterados passam', () => {
+    it('front com dívida, PR boa: global sobe e os arquivos com lógica alterados passam', () => {
       const r = avaliarCobertura({
         head: resumo('pr-boa.coverage-summary.json'),
         base: resumo('main.coverage-summary.json'),
@@ -94,13 +96,13 @@ describe('cobertura', () => {
       assert.equal(r.global.linhas.status, 'ok-catraca');
       assert.deepEqual(
         r.arquivos.map((a) => [a.arquivo, a.passou]),
-        [['src/lib/soma.ts', true], ['src/lib/tarefa-prs.ts', true]],
+        [['src/lib/datas.ts', true], ['src/lib/soma.ts', true]],
       );
       // page.tsx é excluído do coverage (mesmos excluídos de hoje) e o rename puro não conta.
-      assert.ok(r.foraDaCobertura.includes('src/app/dashboard/[sectorId]/bonus/page.tsx'));
+      assert.ok(r.foraDaCobertura.includes('src/app/painel/[equipeId]/metas/page.tsx'));
     });
 
-    it('taskbuilder, PR ruim: global cai mais de 0,1 ponto e arquivo novo sem teste barra', () => {
+    it('front com dívida, PR ruim: global cai mais de 0,1 ponto e arquivo novo sem teste barra', () => {
       const r = avaliarCobertura({
         head: resumo('pr-ruim.coverage-summary.json'),
         base: resumo('main.coverage-summary.json'),
@@ -109,13 +111,13 @@ describe('cobertura', () => {
       });
       assert.equal(r.passou, false);
       assert.equal(r.global.linhas.status, 'queda');
-      assert.equal(r.global.branches.status, 'queda', '14,59% para 14,48%: 0,11 ponto');
+      assert.equal(r.global.branches.status, 'queda', '16,69% para 16,53%: 0,16 ponto');
       const reprovados = r.arquivos.filter((a) => !a.passou).map((a) => a.arquivo);
       assert.deepEqual(reprovados, [
-        'src/app/dashboard/[sectorId]/painel/painel.helpers.ts',
-        'src/lib/format.ts',
-        'src/lib/queries.ts',
-        'src/stores/useMindMapStore.ts',
+        'src/app/painel/[equipeId]/resumo/resumo.helpers.ts',
+        'src/lib/consultas.ts',
+        'src/lib/formato.ts',
+        'src/stores/useQuadroStore.ts',
       ]);
       assert.ok(r.arquivos.some((a) => a.arquivo === 'src/lib/soma.ts' && a.passou));
     });
@@ -322,14 +324,14 @@ describe('cobertura', () => {
       assert.deepEqual(r.dividaPorArquivo, { abaixo: 1, total: 3 });
     });
 
-    it('taskbuilder main: 133 de 163 arquivos com lógica abaixo de 75% lines ou 40% branches', () => {
+    it('main de um front com dívida: 143 de 163 arquivos com lógica abaixo de 75% lines ou 40% branches', () => {
       const r = avaliarCobertura({
         head: resumo('main.coverage-summary.json'),
         base: null,
         alterados: soModificados(),
         limites: LIMITES,
       });
-      assert.deepEqual(r.dividaPorArquivo, { abaixo: 133, total: 163 });
+      assert.deepEqual(r.dividaPorArquivo, { abaixo: 143, total: 163 });
     });
   });
 });
