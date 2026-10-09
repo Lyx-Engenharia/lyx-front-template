@@ -44,3 +44,21 @@ jobs:
             exit 1
           fi
           echo "AGENTS.md sync OK"
+
+  catraca-tests:
+    # Específico do TEMPLATE (não vai pros outros repos). Testes dos scripts da
+    # catraca do lyx-audit.yml (.github/lyx-audit/), com fixtures sintéticos de
+    # um front com dívida (formato real do ESLint, do vitest e do git; caminhos,
+    # nomes e números inventados). node:test puro; o npm ci traz o ESLint que o
+    # teste de ponta a ponta do lint usa.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Testes da catraca
+        run: node --test .github/lyx-audit/*.test.mjs
