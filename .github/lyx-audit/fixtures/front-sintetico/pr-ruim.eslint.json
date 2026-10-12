@@ -1,0 +1,1388 @@
+[
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/app/area-02/page.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 1,
+    "message": "Function 'ComponenteC' has too many lines (182). Maximum allowed is 80.",
+    "line": 20,
+    "column": 35,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 211,
+    "endColumn": 12
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 1,
+    "message": "Async function 'funcaoA' has a complexity of 38. Maximum allowed is 12.",
+    "line": 62,
+    "column": 4,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 62,
+    "endColumn": 13
+   },
+   {
+    "ruleId": "sonarjs/cognitive-complexity",
+    "severity": 2,
+    "message": "Refactor this function to reduce its Cognitive Complexity from 26 to the 15 allowed.",
+    "line": 62,
+    "column": 50,
+    "nodeType": null,
+    "messageId": "refactorFunction",
+    "endLine": 62,
+    "endColumn": 55
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 2,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/app/painel/[equipeId]/agenda/agenda-cliente.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteA' has too many lines (442). Maximum allowed is 80.",
+    "line": 27,
+    "column": 29,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 475,
+    "endColumn": 21
+   },
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Arrow function has too many lines (140). Maximum allowed is 80.",
+    "line": 54,
+    "column": 17,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "exceed",
+    "endLine": 206,
+    "endColumn": 29
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 2,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/app/painel/[equipeId]/resumo/resumo.helpers.ts",
+  "messages": [
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'funcaoD' has a complexity of 38. Maximum allowed is 12.",
+    "line": 22,
+    "column": 25,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 22,
+    "endColumn": 29
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/app/painel/area-01/[itemId]/modulo-01.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteB' has too many lines (102). Maximum allowed is 80.",
+    "line": 34,
+    "column": 51,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 150,
+    "endColumn": 17
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteB' has a complexity of 16. Maximum allowed is 12.",
+    "line": 34,
+    "column": 51,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 34,
+    "endColumn": 69
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 2,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-03/Tela01.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteD' has too many lines (256). Maximum allowed is 80.",
+    "line": 33,
+    "column": 43,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 295,
+    "endColumn": 11
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteD' has a complexity of 47. Maximum allowed is 12.",
+    "line": 33,
+    "column": 43,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 33,
+    "endColumn": 49
+   },
+   {
+    "ruleId": "sonarjs/cognitive-complexity",
+    "severity": 2,
+    "message": "Refactor this function to reduce its Cognitive Complexity from 37 to the 15 allowed.",
+    "line": 33,
+    "column": 23,
+    "nodeType": null,
+    "messageId": "refactorFunction",
+    "endLine": 33,
+    "endColumn": 28
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Async arrow function has a complexity of 15. Maximum allowed is 12.",
+    "line": 93,
+    "column": 44,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "complex",
+    "endLine": 93,
+    "endColumn": 60
+   },
+   {
+    "ruleId": "@typescript-eslint/no-explicit-any",
+    "severity": 1,
+    "message": "Unexpected any. Specify a different type.",
+    "line": 126,
+    "column": 55,
+    "nodeType": "TSAnyKeyword",
+    "messageId": "unexpectedAny",
+    "endLine": 126,
+    "endColumn": 58,
+    "suggestions": [
+     {
+      "messageId": "suggestUnknown",
+      "fix": {
+       "range": [
+        5095,
+        5098
+       ],
+       "text": "unknown"
+      },
+      "desc": "Use `unknown` instead, this will force you to explicitly, and safely assert the type is correct."
+     },
+     {
+      "messageId": "suggestNever",
+      "fix": {
+       "range": [
+        5095,
+        5098
+       ],
+       "text": "never"
+      },
+      "desc": "Use `never` instead, this is useful when instantiating generic type parameters that you don't need to know the type of."
+     }
+    ]
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Async arrow function has a complexity of 30. Maximum allowed is 12.",
+    "line": 171,
+    "column": 55,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "complex",
+    "endLine": 171,
+    "endColumn": 62
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 5,
+  "fatalErrorCount": 0,
+  "warningCount": 1,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-03/Tela02.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteE' has too many lines (382). Maximum allowed is 80.",
+    "line": 35,
+    "column": 58,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 430,
+    "endColumn": 18
+   },
+   {
+    "ruleId": "sonarjs/cognitive-complexity",
+    "severity": 2,
+    "message": "Refactor this function to reduce its Cognitive Complexity from 25 to the 15 allowed.",
+    "line": 79,
+    "column": 22,
+    "nodeType": null,
+    "messageId": "refactorFunction",
+    "endLine": 79,
+    "endColumn": 38
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Async arrow function has a complexity of 19. Maximum allowed is 12.",
+    "line": 79,
+    "column": 22,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "complex",
+    "endLine": 79,
+    "endColumn": 38
+   },
+   {
+    "ruleId": "@typescript-eslint/no-explicit-any",
+    "severity": 1,
+    "message": "Unexpected any. Specify a different type.",
+    "line": 102,
+    "column": 17,
+    "nodeType": "TSAnyKeyword",
+    "messageId": "unexpectedAny",
+    "endLine": 102,
+    "endColumn": 20,
+    "suggestions": [
+     {
+      "messageId": "suggestUnknown",
+      "fix": {
+       "range": [
+        4097,
+        4100
+       ],
+       "text": "unknown"
+      },
+      "desc": "Use `unknown` instead, this will force you to explicitly, and safely assert the type is correct."
+     },
+     {
+      "messageId": "suggestNever",
+      "fix": {
+       "range": [
+        4097,
+        4100
+       ],
+       "text": "never"
+      },
+      "desc": "Use `never` instead, this is useful when instantiating generic type parameters that you don't need to know the type of."
+     }
+    ]
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 3,
+  "fatalErrorCount": 0,
+  "warningCount": 1,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-03/Tela03.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteF' has too many lines (100). Maximum allowed is 80.",
+    "line": 20,
+    "column": 59,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 122,
+    "endColumn": 27
+   },
+   {
+    "ruleId": "@typescript-eslint/no-explicit-any",
+    "severity": 1,
+    "message": "Unexpected any. Specify a different type.",
+    "line": 66,
+    "column": 42,
+    "nodeType": "TSAnyKeyword",
+    "messageId": "unexpectedAny",
+    "endLine": 66,
+    "endColumn": 45,
+    "suggestions": [
+     {
+      "messageId": "suggestUnknown",
+      "fix": {
+       "range": [
+        2682,
+        2685
+       ],
+       "text": "unknown"
+      },
+      "desc": "Use `unknown` instead, this will force you to explicitly, and safely assert the type is correct."
+     },
+     {
+      "messageId": "suggestNever",
+      "fix": {
+       "range": [
+        2682,
+        2685
+       ],
+       "text": "never"
+      },
+      "desc": "Use `never` instead, this is useful when instantiating generic type parameters that you don't need to know the type of."
+     }
+    ]
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 1,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-03/Tela04.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteG' has too many lines (398). Maximum allowed is 80.",
+    "line": 30,
+    "column": 48,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 433,
+    "endColumn": 31
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteG' has a complexity of 52. Maximum allowed is 12.",
+    "line": 30,
+    "column": 48,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 30,
+    "endColumn": 58
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 2,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-03/modulo-02.tsx",
+  "messages": [
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'funcaoB' has a complexity of 16. Maximum allowed is 12.",
+    "line": 17,
+    "column": 6,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 17,
+    "endColumn": 24
+   },
+   {
+    "ruleId": "sonarjs/cognitive-complexity",
+    "severity": 2,
+    "message": "Refactor this function to reduce its Cognitive Complexity from 43 to the 15 allowed.",
+    "line": 17,
+    "column": 57,
+    "nodeType": null,
+    "messageId": "refactorFunction",
+    "endLine": 17,
+    "endColumn": 74
+   },
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteH' has too many lines (323). Maximum allowed is 80.",
+    "line": 82,
+    "column": 24,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 414,
+    "endColumn": 14
+   },
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteI' has too many lines (409). Maximum allowed is 80.",
+    "line": 117,
+    "column": 38,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 529,
+    "endColumn": 17
+   },
+   {
+    "ruleId": "max-lines",
+    "severity": 2,
+    "message": "File has too many lines (670). Maximum allowed is 500.",
+    "line": 501,
+    "column": 42,
+    "nodeType": null,
+    "messageId": "exceed",
+    "endLine": 702,
+    "endColumn": 12
+   },
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteJ' has too many lines (123). Maximum allowed is 80.",
+    "line": 209,
+    "column": 5,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 346,
+    "endColumn": 24
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteJ' has a complexity of 19. Maximum allowed is 12.",
+    "line": 209,
+    "column": 5,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 209,
+    "endColumn": 13
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 7,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-04/modulo-08.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteQ' has too many lines (119). Maximum allowed is 80.",
+    "line": 34,
+    "column": 52,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 156,
+    "endColumn": 29
+   },
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteR' has too many lines (271). Maximum allowed is 80.",
+    "line": 47,
+    "column": 10,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 324,
+    "endColumn": 19
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 2,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-05/modulo-09.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteS' has too many lines (388). Maximum allowed is 80.",
+    "line": 28,
+    "column": 43,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 416,
+    "endColumn": 12
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-06/area-07/Tela05.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Arrow function has too many lines (311). Maximum allowed is 80.",
+    "line": 22,
+    "column": 41,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "exceed",
+    "endLine": 338,
+    "endColumn": 2
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Arrow function has a complexity of 44. Maximum allowed is 12.",
+    "line": 22,
+    "column": 48,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "complex",
+    "endLine": 22,
+    "endColumn": 65
+   },
+   {
+    "ruleId": "react-hooks/set-state-in-effect",
+    "severity": 1,
+    "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/home/runner/work/front-exemplo/front-exemplo/src/components/area-06/area-07/Tela05.tsx:86:32\n  84 |   useEffect(() => {\n  85 |     if (!aberto) return;\n> 86 |     setRascunho(valorInicial);\n     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  87 |   }, [aberto, valorInicial]);",
+    "line": 86,
+    "column": 32,
+    "nodeType": null,
+    "endLine": 86,
+    "endColumn": 49
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 2,
+  "fatalErrorCount": 0,
+  "warningCount": 1,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-08/modulo-10.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteT' has too many lines (123). Maximum allowed is 80.",
+    "line": 10,
+    "column": 48,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 143,
+    "endColumn": 19
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteT' has a complexity of 43. Maximum allowed is 12.",
+    "line": 10,
+    "column": 48,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 10,
+    "endColumn": 69
+   },
+   {
+    "ruleId": "sonarjs/cognitive-complexity",
+    "severity": 2,
+    "message": "Refactor this function to reduce its Cognitive Complexity from 44 to the 15 allowed.",
+    "line": 10,
+    "column": 12,
+    "nodeType": null,
+    "messageId": "refactorFunction",
+    "endLine": 10,
+    "endColumn": 27
+   },
+   {
+    "ruleId": "sonarjs/cognitive-complexity",
+    "severity": 2,
+    "message": "Refactor this function to reduce its Cognitive Complexity from 43 to the 15 allowed.",
+    "line": 49,
+    "column": 45,
+    "nodeType": null,
+    "messageId": "refactorFunction",
+    "endLine": 49,
+    "endColumn": 52
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Async arrow function has a complexity of 42. Maximum allowed is 12.",
+    "line": 49,
+    "column": 45,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "complex",
+    "endLine": 49,
+    "endColumn": 52
+   },
+   {
+    "ruleId": "sonarjs/cognitive-complexity",
+    "severity": 2,
+    "message": "Refactor this function to reduce its Cognitive Complexity from 30 to the 15 allowed.",
+    "line": 119,
+    "column": 12,
+    "nodeType": null,
+    "messageId": "refactorFunction",
+    "endLine": 119,
+    "endColumn": 21
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Async arrow function has a complexity of 19. Maximum allowed is 12.",
+    "line": 119,
+    "column": 12,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "complex",
+    "endLine": 119,
+    "endColumn": 21
+   },
+   {
+    "ruleId": "@typescript-eslint/no-unused-vars",
+    "severity": 1,
+    "message": "'_' is defined but never used.",
+    "line": 155,
+    "column": 31,
+    "nodeType": "Identifier",
+    "messageId": "unusedVar",
+    "endLine": 155,
+    "endColumn": 50
+   },
+   {
+    "ruleId": "sonarjs/cognitive-complexity",
+    "severity": 2,
+    "message": "Refactor this function to reduce its Cognitive Complexity from 38 to the 15 allowed.",
+    "line": 219,
+    "column": 41,
+    "nodeType": null,
+    "messageId": "refactorFunction",
+    "endLine": 219,
+    "endColumn": 45
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Async arrow function has a complexity of 14. Maximum allowed is 12.",
+    "line": 219,
+    "column": 41,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "complex",
+    "endLine": 219,
+    "endColumn": 45
+   },
+   {
+    "ruleId": "max-lines",
+    "severity": 2,
+    "message": "File has too many lines (755). Maximum allowed is 500.",
+    "line": 501,
+    "column": 56,
+    "nodeType": null,
+    "messageId": "exceed",
+    "endLine": 815,
+    "endColumn": 18
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 10,
+  "fatalErrorCount": 0,
+  "warningCount": 1,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-08/modulo-11.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteU' has too many lines (336). Maximum allowed is 80.",
+    "line": 28,
+    "column": 22,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 367,
+    "endColumn": 13
+   },
+   {
+    "ruleId": "react-hooks/incompatible-library",
+    "severity": 1,
+    "message": "Compilation Skipped: Use of incompatible library\n\nThis API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.\n\n/home/runner/work/front-exemplo/front-exemplo/src/components/area-08/modulo-11.tsx:57:11\n  56 |   });\n> 57 |   const valores = form.watch();\n     |                   ^^^^^^^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.\n  58 |",
+    "line": 57,
+    "column": 11,
+    "nodeType": null,
+    "endLine": 57,
+    "endColumn": 29
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 1,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-08/modulo-12.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteV' has too many lines (391). Maximum allowed is 80.",
+    "line": 21,
+    "column": 10,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 425,
+    "endColumn": 4
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteV' has a complexity of 17. Maximum allowed is 12.",
+    "line": 21,
+    "column": 10,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 21,
+    "endColumn": 28
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 2,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-08/modulo-13.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteW' has too many lines (373). Maximum allowed is 80.",
+    "line": 26,
+    "column": 59,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 406,
+    "endColumn": 28
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-09/modulo-14.tsx",
+  "messages": [
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteX' has a complexity of 14. Maximum allowed is 12.",
+    "line": 27,
+    "column": 53,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 27,
+    "endColumn": 74
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-10/area-11/Tela06.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteY' has too many lines (130). Maximum allowed is 80.",
+    "line": 16,
+    "column": 23,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 160,
+    "endColumn": 2
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteY' has a complexity of 43. Maximum allowed is 12.",
+    "line": 16,
+    "column": 23,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 16,
+    "endColumn": 41
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 2,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/area-10/modulo-15.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteZ' has too many lines (436). Maximum allowed is 80.",
+    "line": 16,
+    "column": 42,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 461,
+    "endColumn": 20
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/metas/modulo-03.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteK' has too many lines (232). Maximum allowed is 80.",
+    "line": 38,
+    "column": 15,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 272,
+    "endColumn": 18
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteK' has a complexity of 51. Maximum allowed is 12.",
+    "line": 38,
+    "column": 15,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 38,
+    "endColumn": 23
+   },
+   {
+    "ruleId": "sonarjs/cognitive-complexity",
+    "severity": 2,
+    "message": "Refactor this function to reduce its Cognitive Complexity from 22 to the 15 allowed.",
+    "line": 38,
+    "column": 41,
+    "nodeType": null,
+    "messageId": "refactorFunction",
+    "endLine": 38,
+    "endColumn": 46
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Async arrow function has a complexity of 30. Maximum allowed is 12.",
+    "line": 86,
+    "column": 49,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "complex",
+    "endLine": 86,
+    "endColumn": 55
+   }
+  ],
+  "suppressedMessages": [
+   {
+    "ruleId": "react-hooks/exhaustive-deps",
+    "severity": 1,
+    "message": "React Hook useCallback has a missing dependency: 'valorA'. Either include it or remove the dependency array.",
+    "line": 115,
+    "column": 50,
+    "nodeType": "ArrayExpression",
+    "endLine": 115,
+    "endColumn": 59,
+    "suggestions": [
+     {
+      "desc": "Update the dependencies array to be: [valorB, valorA, valorC]",
+      "fix": {
+       "range": [
+        4650,
+        4659
+       ],
+       "text": "[valorB, valorA, valorC]"
+      }
+     }
+    ],
+    "suppressions": [
+     {
+      "kind": "directive",
+      "justification": ""
+     }
+    ]
+   },
+   {
+    "ruleId": "react-hooks/exhaustive-deps",
+    "severity": 1,
+    "message": "React Hook useEffect has a missing dependency: 'valorD'. Either include it or remove the dependency array.",
+    "line": 154,
+    "column": 1,
+    "nodeType": "ArrayExpression",
+    "endLine": 154,
+    "endColumn": 21,
+    "suggestions": [
+     {
+      "desc": "Update the dependencies array to be: [valorE, valorF, valorG, valorH, valorI, valorJ, valorB, valorD]",
+      "fix": {
+       "range": [
+        6161,
+        6181
+       ],
+       "text": "[valorE, valorF, valorG, valorH, valorI, valorJ, valorB, valorD]"
+      }
+     }
+    ],
+    "suppressions": [
+     {
+      "kind": "directive",
+      "justification": ""
+     }
+    ]
+   }
+  ],
+  "errorCount": 4,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/metas/modulo-04.tsx",
+  "messages": [
+   {
+    "ruleId": "@typescript-eslint/no-unused-vars",
+    "severity": 1,
+    "message": "'TipoSemUsoA' is defined but never used.",
+    "line": 36,
+    "column": 42,
+    "nodeType": "Identifier",
+    "messageId": "unusedVar",
+    "endLine": 36,
+    "endColumn": 53,
+    "suggestions": [
+     {
+      "messageId": "removeUnusedVar",
+      "data": {
+       "varName": "TipoSemUsoA"
+      },
+      "fix": {
+       "range": [
+        1482,
+        1493
+       ],
+       "text": ""
+      },
+      "desc": "Remove unused variable \"TipoSemUsoA\"."
+     }
+    ]
+   },
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteL' has too many lines (329). Maximum allowed is 80.",
+    "line": 83,
+    "column": 26,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 420,
+    "endColumn": 3
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 1,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/metas/pagina-metas.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteM' has too many lines (212). Maximum allowed is 80.",
+    "line": 39,
+    "column": 30,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 258,
+    "endColumn": 28
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteM' has a complexity of 28. Maximum allowed is 12.",
+    "line": 39,
+    "column": 30,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 39,
+    "endColumn": 37
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 2,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/painel/modulo-05.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteN' has too many lines (176). Maximum allowed is 80.",
+    "line": 38,
+    "column": 54,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 214,
+    "endColumn": 2
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/painel/modulo-06.tsx",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Function 'ComponenteO' has too many lines (263). Maximum allowed is 80.",
+    "line": 28,
+    "column": 39,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "exceed",
+    "endLine": 304,
+    "endColumn": 14
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/components/painel/modulo-07.tsx",
+  "messages": [
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'ComponenteP' has a complexity of 17. Maximum allowed is 12.",
+    "line": 33,
+    "column": 30,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 33,
+    "endColumn": 46
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/lib/consultas.ts",
+  "messages": [
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'funcaoC' has a complexity of 17. Maximum allowed is 12.",
+    "line": 7,
+    "column": 32,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 7,
+    "endColumn": 50
+   },
+   {
+    "ruleId": "@typescript-eslint/no-unused-vars",
+    "severity": 1,
+    "message": "'_paramA' is defined but never used.",
+    "line": 30,
+    "column": 32,
+    "nodeType": "Identifier",
+    "messageId": "unusedVar",
+    "endLine": 30,
+    "endColumn": 42
+   },
+   {
+    "ruleId": "@typescript-eslint/no-unused-vars",
+    "severity": 1,
+    "message": "'_paramB' is defined but never used.",
+    "line": 88,
+    "column": 24,
+    "nodeType": "Identifier",
+    "messageId": "unusedVar",
+    "endLine": 88,
+    "endColumn": 46
+   },
+   {
+    "ruleId": "max-lines",
+    "severity": 2,
+    "message": "File has too many lines (974). Maximum allowed is 500.",
+    "line": 501,
+    "column": 43,
+    "nodeType": null,
+    "messageId": "exceed",
+    "endLine": 1010,
+    "endColumn": 2
+   },
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Arrow function has a complexity of 49. Maximum allowed is 12.",
+    "line": 127,
+    "column": 7,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "complex",
+    "endLine": 127,
+    "endColumn": 19
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 3,
+  "fatalErrorCount": 0,
+  "warningCount": 2,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/lib/formato.ts",
+  "messages": [
+   {
+    "ruleId": "complexity",
+    "severity": 2,
+    "message": "Function 'funcaoE' has a complexity of 39. Maximum allowed is 12.",
+    "line": 19,
+    "column": 9,
+    "nodeType": "FunctionDeclaration",
+    "messageId": "complex",
+    "endLine": 19,
+    "endColumn": 18
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 1,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/lib/modulo-16.ts",
+  "messages": [
+   {
+    "ruleId": "@typescript-eslint/no-explicit-any",
+    "severity": 1,
+    "message": "Unexpected any. Specify a different type.",
+    "line": 15,
+    "column": 36,
+    "nodeType": "TSAnyKeyword",
+    "messageId": "unexpectedAny",
+    "endLine": 15,
+    "endColumn": 39,
+    "suggestions": [
+     {
+      "messageId": "suggestUnknown",
+      "fix": {
+       "range": [
+        636,
+        639
+       ],
+       "text": "unknown"
+      },
+      "desc": "Use `unknown` instead, this will force you to explicitly, and safely assert the type is correct."
+     },
+     {
+      "messageId": "suggestNever",
+      "fix": {
+       "range": [
+        636,
+        639
+       ],
+       "text": "never"
+      },
+      "desc": "Use `never` instead, this is useful when instantiating generic type parameters that you don't need to know the type of."
+     }
+    ]
+   },
+   {
+    "ruleId": "@typescript-eslint/no-explicit-any",
+    "severity": 1,
+    "message": "Unexpected any. Specify a different type.",
+    "line": 33,
+    "column": 23,
+    "nodeType": "TSAnyKeyword",
+    "messageId": "unexpectedAny",
+    "endLine": 33,
+    "endColumn": 26,
+    "suggestions": [
+     {
+      "messageId": "suggestUnknown",
+      "fix": {
+       "range": [
+        1343,
+        1346
+       ],
+       "text": "unknown"
+      },
+      "desc": "Use `unknown` instead, this will force you to explicitly, and safely assert the type is correct."
+     },
+     {
+      "messageId": "suggestNever",
+      "fix": {
+       "range": [
+        1343,
+        1346
+       ],
+       "text": "never"
+      },
+      "desc": "Use `never` instead, this is useful when instantiating generic type parameters that you don't need to know the type of."
+     }
+    ]
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 0,
+  "fatalErrorCount": 0,
+  "warningCount": 2,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ },
+ {
+  "filePath": "/home/runner/work/front-exemplo/front-exemplo/src/stores/useQuadroStore.ts",
+  "messages": [
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Arrow function has too many lines (280). Maximum allowed is 80.",
+    "line": 15,
+    "column": 4,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "exceed",
+    "endLine": 306,
+    "endColumn": 23
+   },
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Arrow function has too many lines (148). Maximum allowed is 80.",
+    "line": 44,
+    "column": 48,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "exceed",
+    "endLine": 193,
+    "endColumn": 31
+   },
+   {
+    "ruleId": "max-lines-per-function",
+    "severity": 2,
+    "message": "Arrow function has too many lines (347). Maximum allowed is 80.",
+    "line": 89,
+    "column": 9,
+    "nodeType": "ArrowFunctionExpression",
+    "messageId": "exceed",
+    "endLine": 445,
+    "endColumn": 24
+   }
+  ],
+  "suppressedMessages": [],
+  "errorCount": 3,
+  "fatalErrorCount": 0,
+  "warningCount": 0,
+  "fixableErrorCount": 0,
+  "fixableWarningCount": 0,
+  "usedDeprecatedRules": []
+ }
+]
