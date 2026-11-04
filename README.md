@@ -31,7 +31,7 @@ jobs:
 
 ## Ligar um front
 
-Siga o [`consumidor/README.md`](consumidor/README.md): quatro arquivos para copiar, as dependências e os quatro scripts que o CI chama (`lint`, `typecheck`, `test:coverage`, `deps:check`).
+Siga o [`consumidor/README.md`](consumidor/README.md): cinco arquivos para copiar, as dependências e os quatro scripts que o CI chama (`lint`, `typecheck`, `test:coverage`, `deps:check`). No front que adotou o lume, o `lume-vendorizado.mjs` tira do lint e da cobertura o que veio da registry.
 
 ## O que o lyx-audit.yml checa
 

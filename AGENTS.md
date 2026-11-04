@@ -20,7 +20,7 @@ Repo **só de CI compartilhado** dos fronts da Lyx. Tem o reusable `lyx-audit.ym
 | `packages/front-audit/` | `@lyxai/front-audit`, publicado no npm | `eslint.config.mjs`, `vitest.config.ts` e `.dependency-cruiser.cjs` dos fronts; o reusable usa os bins por `npx -p @lyxai/front-audit@^0` |
 | `.github/workflows/publish-front-audit.yml` | publica o pacote na tag `front-audit-v*` (OIDC) | GitHub |
 | `packages/sistema-admin/` | `@lyxai/sistema-admin`, publicado no npm | fronts que importam `SistemaAdminPanel` e `ChangePasswordCard` |
-| `consumidor/` | modelo do `pr.yml`, ESLint, dependency-cruiser e vitest de um front | quem liga um front ao CI |
+| `consumidor/` | modelo do `pr.yml`, ESLint, dependency-cruiser e vitest de um front, e o `lume-vendorizado.mjs` (no front com o lume, a registry fica fora do lint e da cobertura) | quem liga um front ao CI |
 | `docs/TESTING.md`, `docs/AUDITORIA_AUTOMATIZADA.md` | regras de teste, catraca e checagens | os `pr.yml` dos fronts apontam para o `TESTING.md` |
 
 ## Regras invioláveis
@@ -32,6 +32,7 @@ Repo **só de CI compartilhado** dos fronts da Lyx. Tem o reusable `lyx-audit.ym
 - 🔒 **A linha `::error::Falhas: <partes>` do último passo é contrato.** O `lyx-pr-agent` lê essa anotação (`src/divida-da-base.ts`) para comparar a PR com a base: partes em minúsculas, separadas por espaço. Anotação de outro passo não começa com `Falhas:`.
 - 🔒 **O YAML do reusable fica no subconjunto que o simulador lê** (`apoio-workflow.mjs`): mapas e listas por recuo, escalar simples ou entre aspas simples, blocos `|` e `>-`, comentário de linha inteira. Sem âncora e sem coleção inline. Nome de passo com `:` vai entre aspas simples.
 - 🔒 **Mudança no reusable vem com teste em `workflow.test.mjs`.** Passo que só usa bash, node e git roda de verdade no job simulado (lista `EXECUTAR`); o que chama npm, npx do pacote, gh ou `uses:` é simulado pelo cenário.
+- 🔒 **Exclude de cobertura sem padrão com `!`.** No `coverage.exclude` do vitest 4 ele não devolve o arquivo: tira tudo (lcov vazio, testado em 04/11/2026). O `consumidor/lume-vendorizado.mjs` usa só padrões positivos por isso.
 - 🔒 **`packages/sistema-admin/` fica enquanto houver front consumindo.** Em 04/11/2026 o `lyx-analise-credito-front` e o `lyx-contratos-front` dependem de `@lyxai/sistema-admin@^0.2.0`. A `main` tem o código da 0.1.0: a 0.2.0 saiu da branch `feat/sistema-admin-package`, que não entrou na `main`, e não há workflow de publicação desse pacote.
 
 ## O que o reusable faz, em ordem

@@ -10,6 +10,7 @@ O CI dos fronts é o reusable [`lyx-audit.yml`](../.github/workflows/lyx-audit.y
 | `consumidor/eslint.config.mjs` | `eslint.config.mjs` |
 | `consumidor/.dependency-cruiser.cjs` | `.dependency-cruiser.cjs` |
 | `consumidor/vitest.config.ts` | `vitest.config.ts` |
+| `consumidor/lume-vendorizado.mjs` | `lume-vendorizado.mjs` (copie sempre: no front sem o lume, a lista sai vazia) |
 
 ## 2. Instale as dependências de desenvolvimento
 
@@ -60,9 +61,13 @@ O CI instala com `npm ci`. Lock fora de sincronia com o `package.json` cai no `n
 
 ## Front com o lume
 
-O reusable roda `npx -y @joaodadas/lume@^0 check` quando o front tem `lume.json` na raiz ou um `components.json` que contém `joaodadas/lume` ou `lume-ashmont`. Sem esse marcador, o passo pula.
+O marcador é `lume.json` na raiz ou um `components.json` que contém `joaodadas/lume` ou `lume-ashmont`. Com ele:
 
-Os arquivos que a CLI do shadcn instala da registry do lume não se editam à mão, por isso ficam fora do lint e da cobertura. O `lyx-controladoria-front` e o `lyx-medicoes-front` listam esses caminhos num `lume-vendorizado.mjs` e espalham a lista no `globalIgnores` do ESLint e no `coverage.exclude` do vitest.
+- O reusable roda `npx -y @joaodadas/lume@^0 check`. Sem o marcador, o passo pula.
+- O `lume-vendorizado.mjs` tira do lint e da cobertura o que veio da registry, que não se edita à mão. A divisão é a do `FRONTEND.md` do lume: o código do app fica em `src/components/app/`, e o resto de `src/components/` é da registry, assim como `src/lib/{utils,format,motion,range}.ts` e os hooks do lume em `src/hooks/`. Componente do app fora de `src/components/app/` sai da conta da cobertura: mova para lá.
+- No `coverage.exclude` do vitest 4, padrão com `!` não devolve o arquivo: tira tudo da cobertura (lcov vazio). Por isso a lista só tem padrões positivos.
+
+O `lyx-controladoria-front` e o `lyx-medicoes-front` já têm um `lume-vendorizado.mjs` próprio, com a lista explícita do que instalaram e o mesmo nome de export. Podem ficar com ele.
 
 ## Inputs do reusable
 
