@@ -1,6 +1,6 @@
 # Auditoria automatizada de qualidade
 
-Documento humano explicando as checagens automáticas que rodam em toda PR contra `develop`/`main`. Pra resumo curto, ver `AGENTS.md` seção "Auditoria automatizada (CI)".
+Documento humano explicando as checagens automáticas que o `lyx-audit.yml` roda em toda PR dos fronts contra `main`. Pra resumo curto, ver o [`README.md`](../README.md). As regras de ESLint e o gate de cobertura vêm do pacote [`@lyxai/front-audit`](../packages/front-audit/).
 
 ## Pilares
 
@@ -8,7 +8,7 @@ Documento humano explicando as checagens automáticas que rodam em toda PR contr
 
 Conta caminhos lógicos independentes numa função: cada `if`, `else if`, `case`, `&&`, `||`, `?:`, `catch`, loop adiciona +1. Função com CCN alta = difícil de testar (precisa cobrir N caminhos), difícil de revisar.
 
-- **Threshold:** <= 12 (severidade `warn` em Fase 1; `error` em Fase 2)
+- **Threshold:** <= 12 (severidade `error`, bloqueia merge)
 - **Ferramenta:** regra built-in do ESLint
 - **Fix típico:** extrair sub-função pra ramo do `if`; substituir nested if por early return; usar table lookup ao invés de switch gigante
 
@@ -16,22 +16,22 @@ Conta caminhos lógicos independentes numa função: cada `if`, `else if`, `case
 
 Variante moderna da CCN proposta pela SonarSource. Penaliza nesting (cada nível de aninhamento aumenta o score), ignora switch flat largo. Mais fiel à "dificuldade real de ler".
 
-- **Threshold:** <= 15 (severidade `warn` em Fase 1; `error` em Fase 2)
+- **Threshold:** <= 15 (severidade `error`, bloqueia merge)
 - **Ferramenta:** `eslint-plugin-sonarjs`
 - **Fix:** mesmas técnicas da CCN, com foco extra em achatar nesting
 
 ### 3. Tamanho de arquivo (`max-lines`)
 
-- **Threshold:** <= 500 linhas (skipBlankLines, skipComments). Severidade `warn` em Fase 1; `error` em Fase 2.
+- **Threshold:** <= 500 linhas (skipBlankLines, skipComments). Severidade `error`, bloqueia merge.
 - **Excluídos:** `**/*.spec.{ts,tsx}`, `**/*.test.{ts,tsx}`, `**/__fixtures__/**`, `src/components/ui/**` (shadcn gerado)
 - **Fix:** quebrar em domínio (`<feature>.actions.ts` + `<feature>-form.tsx` + `<feature>-list.tsx`)
 
 ### 4. Tamanho de função (`max-lines-per-function`)
 
-- **Threshold:** <= 80 linhas (severidade `warn` em Fase 1; `error` em Fase 2)
+- **Threshold:** <= 80 linhas (severidade `error`, bloqueia merge)
 - **Fix:** extrair helpers privados; mover validação pra schema Zod; usar early returns; quebrar componentes grandes em sub-componentes
 
-### 5. Cobertura global (`coverage-gate.ts`)
+### 5. Cobertura global (`lyx-coverage-gate`)
 
 Lê `coverage/lcov.info` (gerado por `vitest run --coverage`), agrega tudo em um único totals global, compara com thresholds.
 
@@ -41,9 +41,9 @@ O front tem segmentação fraca por bounded context — a maior parte do código
 
 **Thresholds:**
 
-- **Lines:** >= 50% (default — `AUDIT_LINES_MIN`)
-- **Branches:** >= 40% (default — `AUDIT_BRANCHES_MIN`)
-- **Mode:** `AUDIT_GATE_MODE` (`warn` default — exit 0 mesmo violando; `error` — exit 1 se violar)
+- **Lines:** >= 75% (input `coverage-lines` do reusable, env `AUDIT_LINES_MIN`)
+- **Branches:** >= 40% (input `coverage-branches`, env `AUDIT_BRANCHES_MIN`)
+- **Mode:** `AUDIT_GATE_MODE`: `error` (padrão) sai 1 se violar; `warn` sai 0 mesmo violando
 
 **Arquivos excluídos do cálculo** (sem lógica testável):
 
@@ -53,7 +53,7 @@ O front tem segmentação fraca por bounded context — a maior parte do código
 - Next.js App Router convention files: `layout.tsx`, `page.tsx`, `error.tsx`, `loading.tsx`, `not-found.tsx`
 - Fixtures: `**/__fixtures__/**`, `**/__mocks__/**`
 
-Lista mantida em `vitest.config.ts` (`coverage.exclude`).
+Lista base: `lyxCoverageExclude`, do `@lyxai/front-audit`, espalhada no `coverage.exclude` do `vitest.config.ts` do front (modelo em [`consumidor/vitest.config.ts`](../consumidor/vitest.config.ts)).
 
 **Na PR (catraca, padrão do `lyx-audit.yml`):** este gate do repo inteiro vira informativo, e quem barra a PR é a catraca: global que sai do mínimo (ou, em repo com dívida, cai mais de 0,1 ponto) e erro de lint novo. O arquivo que a PR cria ou altera abaixo do mínimo aparece como aviso; barra só com `coverage-files-gate: error`. Detalhe em [`TESTING.md`](TESTING.md#catraca-na-pr-padrão).
 
@@ -63,7 +63,7 @@ Lista mantida em `vitest.config.ts` (`coverage.exclude`).
 - Mover regra de negócio de componentes pra helpers puros e testar lá
 - Pra Server Actions: extrair lógica pura, testar a função pura, não a action
 
-**Nota sobre branches:** Vitest v8 coverage emite BRF/BRH normalmente. Se a suíte ainda for pequena, o número pode oscilar — daí o mode `warn` na Fase 1.
+**Nota sobre branches:** Vitest v8 coverage emite BRF/BRH normalmente. Se a suíte ainda for pequena, o número pode oscilar.
 
 ### 6. Ciclos de import (`dependency-cruiser` `no-circular`)
 
@@ -79,6 +79,13 @@ Arquivos sem importadores — código morto provável.
 
 - **Severidade:** warn (informativo)
 - **Exceções:** convention files do App Router (`page.tsx`, `layout.tsx`, etc.), configs no root, scripts standalone, fixtures, specs
+
+### 8. Conferência do lume (só repo que adotou o lume)
+
+O lume é o design system dos fronts (registry do shadcn em `joaodadas/lume`). O passo `lume: conferência` roda só quando o front tem `lume.json` na raiz ou um `components.json` que contém `joaodadas/lume` ou `lume-ashmont`. Sem o marcador, o passo diz que pulou e passa.
+
+- **Comando:** `npx -y @joaodadas/lume@^0 check`. Sai 0 com tudo certo e 1 com violação, e o relatório por regra fica no log do passo.
+- **Severidade:** entra no status final como `lume` (`Falhas: lume`), como os outros checks: barra em `gate-mode: error` e é informativa em `warn`.
 
 ## Política pra exceções
 
@@ -123,13 +130,7 @@ O bot do PR atualiza o comentário marcado com `<!-- audit-report -->` a cada pu
 
 ## Fases
 
-| Fase | Status | ESLint (complexity/max-lines/cognitive) | coverage-gate | deps:check |
-|---|---|---|---|---|
-| Fase 1 | **ATUAL** (rollout) | severidade `warn` (não bloqueia merge) | `AUDIT_GATE_MODE=warn` (continue-on-error) | `error` (bloqueante) |
-| Fase 2 | futura | severidades sobem pra `error` (bloqueante) | `AUDIT_GATE_MODE=error` (bloqueante) | `error` |
-| Fase 3 (futuro) | — | + accessibility rules (`jsx-a11y`) | — | — |
-
-> **Observação:** template está em Fase 1 com ESLint em `warn`, alinhado com os fronts da org (`lyx-contratos-front`, `lyx-bi-principal`, etc.). Como template, cada novo clone nasce com essas regras como `warn` — o owner do front clonado decide quando subir pra `error` (Fase 2) baseado em quanto código legacy acumulou. Ciclos de import já bloqueiam (regra `no-circular` do dependency-cruiser) desde o dia 1.
+A Fase 1 (regras em `warn`) e a Fase 2 (tudo em `error`) já passaram. Hoje complexity, cognitive, max-lines, max-lines-per-function e `lyx/missing-spec` estão em `error` no `@lyxai/front-audit`, o gate de cobertura sai com `gate-mode: error` por padrão e ciclos de import bloqueiam. Na PR vale a catraca ([`TESTING.md`](TESTING.md#catraca-na-pr-padrão)). A camada do `@lyxai/front-audit` não liga regras de acessibilidade (`jsx-a11y`), que eram a Fase 3 da tabela antiga.
 
 ## Out of scope
 
