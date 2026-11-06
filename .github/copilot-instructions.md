@@ -39,7 +39,7 @@ Repo **só de CI compartilhado** dos fronts da Lyx. Tem o reusable `lyx-audit.ym
 
 1. Checkout do front (fetch-depth 2) e os scripts da catraca.
 2. Node, `npm ci` (cai no `npm install` com aviso se o lock não bate).
-3. **lume:** com `lume.json` na raiz, ou `components.json` com `joaodadas/lume` ou `lume-ashmont`, roda `npx -y @joaodadas/lume@^0.4 check` (minor do 0.x fixa; 0 = ok, 1 = violação, relatório por regra no log; teto de 5 minutos). Sem o marcador, pula. `lume-check: false` no `with:` desliga o passo (saída de emergência). A falha do lume não aparece no comentário do bot: o status final aponta o log do passo.
+3. **lume:** com `lume.json` na raiz, ou `components.json` com `joaodadas/lume` ou `lume-ashmont`, roda `npx -y @joao.dadas/lume@^0.4 check` (minor do 0.x fixa; 0 = ok, 1 = violação, relatório por regra no log; teto de 5 minutos). Sem o marcador, pula. `lume-check: false` no `with:` desliga o passo (saída de emergência). A falha do lume não aparece no comentário do bot: o status final aponta o log do passo.
 4. Lint, typecheck, testes com cobertura, gate de cobertura (`lyx-coverage-gate`), dependency-cruiser.
 5. Catraca na PR: lint e cobertura contam só o que a PR piora.
 6. Relatório (`lyx-audit-report` e a catraca) como comentário `<!-- audit-report -->` na PR e no resumo da run.

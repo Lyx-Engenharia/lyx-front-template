@@ -195,7 +195,7 @@ describe('lyx-audit.yml', () => {
     it('lume.json na raiz: roda o check do pacote, e o check verde deixa o passo verde', () => {
       const r = rodarLume({ 'lume.json': '{}' });
       assert.equal(r.status, 0, r.saida);
-      assert.deepEqual(r.chamadas, ['-y @joaodadas/lume@^0.4 check']);
+      assert.deepEqual(r.chamadas, ['-y @joao.dadas/lume@^0.4 check']);
       assert.match(r.outputs, /^adotou=true$/m);
       assert.match(r.saida, /relatório do lume \(falso\)/);
     });
@@ -205,7 +205,7 @@ describe('lyx-audit.yml', () => {
       for (const componentes of registries) {
         const r = rodarLume({ 'components.json': componentes });
         assert.equal(r.status, 0, r.saida);
-        assert.deepEqual(r.chamadas, ['-y @joaodadas/lume@^0.4 check'], componentes);
+        assert.deepEqual(r.chamadas, ['-y @joao.dadas/lume@^0.4 check'], componentes);
       }
     });
 
@@ -560,7 +560,7 @@ describe('lyx-audit.yml', () => {
       try {
         const npx = npxFalso(pasta, { saida: 1 });
         const job = rodar(r, { path: `${npx.bin}:${process.env.PATH}`, simulados: consumidor({ headCobertura: { 'src/resto.js': [100, 90], 'src/novo.js': [10, 10] } }) });
-        assert.deepEqual(npx.chamadas(), ['-y @joaodadas/lume@^0.4 check']);
+        assert.deepEqual(npx.chamadas(), ['-y @joao.dadas/lume@^0.4 check']);
         assert.equal(job.por(PASSO_DO_LUME).outcome, 'failure');
         for (const nome of ['Lint', 'Typecheck', 'Tests + coverage', 'Catraca: cobertura']) assert.equal(rodou(job, nome), true, nome);
         assert.equal(job.final.outcome, 'failure');

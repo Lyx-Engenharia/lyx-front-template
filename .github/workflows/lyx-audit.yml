@@ -219,7 +219,7 @@ jobs:
       # 4b. Conferência do lume (design system dos fronts), só no repo que o
       # adotou: lume.json na raiz, ou components.json com joaodadas/lume ou
       # lume-ashmont (a registry). Sem o marcador o passo diz que pulou e passa.
-      # Com ele, `@joaodadas/lume check` sai 0 com tudo certo e 1 com violação,
+      # Com ele, `@joao.dadas/lume check` sai 0 com tudo certo e 1 com violação,
       # com o relatório por regra no log. Como os outros checks, segue com
       # continue-on-error, e o "Avaliar status final" barra o job com "lume".
       # A versão fica presa na minor do 0.x (^0.4): uma 0.5 com regra nova não
@@ -244,9 +244,9 @@ jobs:
             exit 0
           fi
           echo "adotou=true" >> "$GITHUB_OUTPUT"
-          echo "lume: o repo adotou o lume ($marcador). Rodando npx -y @joaodadas/lume@^0.4 check."
-          if ! npx -y @joaodadas/lume@^0.4 check; then
-            echo "::error::lume: a conferência achou violação ou não rodou (npx -y @joaodadas/lume@^0.4 check). O relatório está no log deste passo."
+          echo "lume: o repo adotou o lume ($marcador). Rodando npx -y @joao.dadas/lume@^0.4 check."
+          if ! npx -y @joao.dadas/lume@^0.4 check; then
+            echo "::error::lume: a conferência achou violação ou não rodou (npx -y @joao.dadas/lume@^0.4 check). O relatório está no log deste passo."
             exit 1
           fi
 

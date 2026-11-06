@@ -40,7 +40,7 @@ Siga o [`consumidor/README.md`](consumidor/README.md): cinco arquivos para copia
 - **Testes e cobertura:** 75% de linhas e 40% de branches no repo inteiro.
 - **Ciclos de import:** dependency-cruiser, zero.
 - **Catraca na PR (padrão):** lint e cobertura barram só o que a PR piora.
-- **lume:** `npx -y @joaodadas/lume@^0.4 check`, só no repo que adotou o lume (`lume.json` na raiz, ou `components.json` com `joaodadas/lume` ou `lume-ashmont`), com teto de 5 minutos. `lume-check: false` no `with:` desliga o passo.
+- **lume:** `npx -y @joao.dadas/lume@^0.4 check`, só no repo que adotou o lume (`lume.json` na raiz, ou `components.json` com `joaodadas/lume` ou `lume-ashmont`), com teto de 5 minutos. `lume-check: false` no `with:` desliga o passo.
 
 Todos rodam até o fim, e o último passo decide o status. O relatório vira comentário na PR. Detalhe em [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md) e [`docs/TESTING.md`](docs/TESTING.md).
 
