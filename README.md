@@ -1,149 +1,58 @@
-# Lyx Front Template
+# lyx-front-template
 
-Template Next.js 16 + Lyx Design System v2. Clone-ready, layout dashboard pronto, integrações Better Auth + TanStack Query + Sonner já configuradas.
+CI compartilhado dos fronts da Lyx. O repo não é mais template de app: front novo não nasce daqui. O design system dos fronts é o [lume](https://github.com/joaodadas/lume), e o caminho para criar um front novo está no `docs/FRONTEND_LUME.md` do `lyx-monolith`.
 
-## Stack
+O nome do repo ficou: renomear o repo ou mover o workflow quebraria o `uses:` de todos os consumidores.
 
-- Next 16 (App Router) + React 19 + TypeScript 5
-- Tailwind CSS 4 + tokens OKLCH + classes 52W (`.app-shell`, `.sidebar`, `.lyx-card`, etc)
-- Inter (next/font) + Geist Mono
-- Radix UI + CVA + Lucide
-- TanStack Query 5 + Sonner + React Hook Form + Zod 4
-- Recharts 3
-- Better Auth client (organization plugin)
+## O que mora aqui
 
-## Quickstart
+| Caminho | O que é |
+|---|---|
+| `.github/workflows/lyx-audit.yml` | o reusable que cada front chama no `pr.yml` |
+| `.github/lyx-audit/` | a catraca: scripts `.mjs` que o reusable baixa por sparse checkout, com testes e fixtures |
+| `packages/front-audit/` | o pacote `@lyxai/front-audit`: ESLint, preset do dependency-cruiser, exclude do vitest e os bins `lyx-coverage-gate` e `lyx-audit-report` |
+| `.github/workflows/publish-front-audit.yml` | publica o `@lyxai/front-audit` no npm a cada tag `front-audit-v*` |
+| `packages/sistema-admin/` | o pacote `@lyxai/sistema-admin` (painel Admin de Sistema), que fronts usam pelo npm |
+| `consumidor/` | os arquivos que um front precisa ter para o CI passar |
+| `docs/TESTING.md` | doc canônica de testes e da catraca |
+| `docs/AUDITORIA_AUTOMATIZADA.md` | cada checagem do CI, com limite e severidade |
+
+## Quem consome
+
+Os fronts e os 3 repos do BI (29 repos da org na contagem de 04/11/2026) chamam:
+
+```yaml
+jobs:
+  audit:
+    uses: Lyx-Engenharia/lyx-front-template/.github/workflows/lyx-audit.yml@main
+```
+
+**Como é `@main`, todo merge aqui vale para os 29 no próximo run de cada um.** Nenhum deles fixa versão.
+
+## Ligar um front
+
+Siga o [`consumidor/README.md`](consumidor/README.md): cinco arquivos para copiar, as dependências e os quatro scripts que o CI chama (`lint`, `typecheck`, `test:coverage`, `deps:check`). No front que adotou o lume, o `lume-vendorizado.mjs` tira do lint e da cobertura o que veio da registry.
+
+## O que o lyx-audit.yml checa
+
+- **Lint:** complexidade ciclomática (12), cognitiva (15), arquivo (500 linhas), função (80 linhas) e `lyx/missing-spec`.
+- **Typecheck:** `tsc --noEmit`.
+- **Testes e cobertura:** 75% de linhas e 40% de branches no repo inteiro.
+- **Ciclos de import:** dependency-cruiser, zero.
+- **Catraca na PR (padrão):** lint e cobertura barram só o que a PR piora.
+- **lume:** `npx -y @joao.dadas/lume@^0.4 check`, só no repo que adotou o lume (`lume.json` na raiz, ou `components.json` com `joaodadas/lume` ou `lume-ashmont`), com teto de 5 minutos. `lume-check: false` no `with:` desliga o passo.
+
+Todos rodam até o fim, e o último passo decide o status. O relatório vira comentário na PR. Detalhe em [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md) e [`docs/TESTING.md`](docs/TESTING.md).
+
+## Mexer neste repo
 
 ```bash
-# 1. Clone template
-npx degit Lyx-Engenharia/lyx-front-template meu-novo-front
-cd meu-novo-front
-
-# 2. Deps
-npm install
-
-# 3. Env
-cp .env.example .env.local
-# edita NEXT_PUBLIC_API_URL + NEXT_PUBLIC_ORG_SLUG
-
-# 4. Dev
-npm run dev
-# http://localhost:3001
+npm ci
+npm test                       # catraca (node --test), @lyxai/front-audit e @lyxai/sistema-admin (vitest)
+npm run typecheck:front-audit
+npm run sync-agents            # depois de editar o AGENTS.md
 ```
 
-## Estrutura
-
-```
-src/
-├── app/
-│   ├── layout.tsx              ← root: fonts + Providers
-│   ├── globals.css             ← tokens 52W + classes Lyx
-│   ├── page.tsx                ← redirect → /dashboard
-│   ├── login/page.tsx          ← só redirect: o login é do Hub (SSO)
-│   └── dashboard/
-│       ├── layout.tsx          ← sidebar + topbar 52W
-│       ├── page.tsx            ← dashboard demo (entregas)
-│       ├── entregas/{page,nova,[id]/page}.tsx
-│       ├── sistemas/page.tsx
-│       └── setores/page.tsx
-├── components/
-│   ├── providers.tsx           ← QueryClient + Toaster
-│   ├── theme-toggle.tsx
-│   ├── lyx-modal.tsx
-│   ├── entrega-actions.tsx     ← exemplo CRUD via dialogs
-│   └── ui/                     ← 15 componentes prontos
-└── lib/
-    ├── utils.ts                ← cn()
-    ├── api.ts                  ← fetch wrapper credentials
-    ├── auth-client.ts          ← Better Auth + organization
-    └── example/queries.ts      ← EXEMPLO de hooks TanStack (rota /items não existe)
-```
-
-## Customizar para seu sistema
-
-### 1. Cores e tokens
-
-`src/app/globals.css`:
-```css
-:root {
-  --accent: #025864;        /* trocar pela cor do seu sistema */
-  --accent-hover: #014049;
-  --accent-light: rgba(2, 88, 100, 0.08);
-  /* ... */
-}
-```
-
-### 2. Logo + Brand
-
-Nome, tagline e descrição moram num lugar só, `src/config/brand.ts`, lido pela sidebar do dashboard e pelo `metadata` (`<title>`/description) do `app/layout.tsx`:
-```ts
-export const BRAND = {
-  prefix: "Meu",
-  suffix: "Sistema",
-  tagline: "Sub-título do sistema",
-  // ...
-} as const;
-```
-
-SVG logo: `src/components/ui/lyx-logo.tsx` ou inline no layout.
-
-### 3. Navigation
-
-```tsx
-const navOperacional = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/entregas", label: "Entregas", icon: Package },
-  // adicionar/remover
-];
-```
-
-### 4. Domínio (substituir Entregas)
-
-Renomear `src/app/dashboard/entregas/` → seu domínio. Escrever os hooks do domínio em `src/lib/` (use `lib/example/queries.ts` só como formato: a rota `/items` não existe no monolito) e apagar `src/lib/example/queries.ts`.
-
-### 5. Auth
-
-Backend (Better Auth) precisa estar disponível em `NEXT_PUBLIC_API_URL`. Por padrão consome o monolith Lyx.
-
-## Padrões obrigatórios
-
-- **Apenas classes 52W ou Tailwind utility** — evitar inline styles fora de layout.tsx
-- **Tipografia Inter** — `font-family: var(--font-inter)` (já em body)
-- **Números: Inter Bold** — NÃO usar mono (sem slashed zero)
-- **Botões: `.btn .btn-primary`** (teal) ou `.btn-secondary` (outline)
-- **Cards: `.lyx-card`** ou shadcn `Card` (ambos funcionam)
-- **Forms: `.form-input/select/textarea` + `.form-label`**
-- **Badges: `.lyx-badge.{gray|accent|success|warning|danger}`**
-- **Tables: `.lyx-table`**
-- **Modais: `<LyxModal>`** (component) com Portal + ESC
-
-## Integração com monolith Lyx
-
-Consumo via `NEXT_PUBLIC_API_URL`:
-- Auth: `/api/auth/*` (Better Auth)
-- Domínio: `/<modulo>/*` (ex: `/entregas`, `/sistemas`, `/setores`)
-- Cookie cross-subdomain via `credentials: 'include'`
-
-Login é do Hub (SSO pelo cookie `.lyxai.com.br`): sem sessão, o layout do dashboard manda pra `https://hub.lyxai.com.br/login?redirect=<url atual>`. Com sessão, o gate busca `GET /me/profile` e exige membership na org `NEXT_PUBLIC_ORG_SLUG`; confirmada a membership, ativa essa org na sessão via `authClient.organization.setActive({ organizationSlug: ORG_SLUG })` (`ativarOrgDoSistema()` em `lib/auth-client.ts`).
-
-Pra funcionar em prod, a origin do front precisa estar na allowlist de redirect do Hub (`lyx-hub-front/src/lib/login-redirect.ts`; fora dela a pessoa cai no dashboard do Hub depois do login) e no `TRUSTED_ORIGINS` do monolito (CORS + CSRF do Better Auth).
-
-## Build & Deploy
-
-```bash
-# Build
-npm run build
-
-# Docker
-docker compose up --build
-```
-
-`next.config.ts` configurado com `output: "standalone"` para Docker minimal.
-
-`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ORG_SLUG` e `NEXT_PUBLIC_HUB_URL` são inlinadas no `next build`: no Dokploy elas vão como **build args** (o `Dockerfile` declara `ARG` + `ENV` no estágio de build), não como env de runtime. Sem o build arg, `src/lib/env.ts` cai no fallback de produção (`https://api.lyxai.com.br`, `https://hub.lyxai.com.br`), nunca no `localhost`.
-
-## Compatibilidade
-
-- Node ≥ 20.18
-- Next 16.x (App Router)
-- React 19.x
+- PR contra `main`. O CI daqui (`pr.yml`) roda o sync do AGENTS.md, os testes da catraca e o typecheck, o build e os testes do `@lyxai/front-audit` e os testes do `@lyxai/sistema-admin`.
+- O `pr.yml` daqui não roda o reusable: o repo não tem front. Os testes da catraca rodam os passos do `lyx-audit.yml` de verdade e simulam o job inteiro. Para ver uma mudança no reusable rodando no GitHub antes do merge, abra uma PR de teste num front com `uses: ...lyx-audit.yml@<sua-branch>`.
+- Release do `@lyxai/front-audit`: o passo a passo está no topo do `publish-front-audit.yml`.

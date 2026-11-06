@@ -1,4 +1,4 @@
-# AGENTS.md — lyx-front-template
+# AGENTS.md: lyx-front-template
 
 > Fonte única de regras pra agentes de IA (Claude Code, Cursor, Copilot, Aider).
 > **Não edite os arquivos copiados** (CLAUDE.md, .cursorrules, .github/copilot-instructions.md).
@@ -6,176 +6,78 @@
 
 ## TL;DR
 
-**Template Next.js 16 (App Router) + React 19 + Tailwind 4 + shadcn/ui** pra criar novos fronts CRUD que consomem o monolito `lyx-monolith`. Better Auth client (cookie cross-subdomain) já wireado. TanStack Query 5 + React Hook Form + Zod 4 + Sonner. Layout dashboard + gate de acesso já prontos; o login é do Hub (SSO). Cloná-lo via `npx degit Lyx-Engenharia/lyx-front-template <novo-projeto>` e renomear pacote/rotas pro domínio do novo front.
+Repo **só de CI compartilhado** dos fronts da Lyx. Tem o reusable `lyx-audit.yml`, a catraca (`.github/lyx-audit/`), o pacote `@lyxai/front-audit` e os modelos de arquivo do front em `consumidor/`. Não é template de app: front novo não nasce daqui (o design system é o lume; o caminho está no `docs/FRONTEND_LUME.md` do `lyx-monolith`).
 
-**O que vem pronto:**
+29 repos da org (fronts e os 3 do BI, contagem de 04/11/2026) chamam `Lyx-Engenharia/lyx-front-template/.github/workflows/lyx-audit.yml@main`. **Mudança no `lyx-audit.yml` ou na catraca vale para todos eles no próximo run, sem PR nos fronts.**
 
-- Layout `dashboard` com sidebar/topbar (Lyx Design System v2) e gate de acesso: sessão + membership na org `NEXT_PUBLIC_ORG_SLUG` via `GET /me/profile` (`lib/acesso.ts`); sem membership, tela "sem acesso" com link pro Hub
-- **Sem tela de login própria (SSO).** Sem sessão, o dashboard manda pro login do Hub (`https://hub.lyxai.com.br/login?redirect=<url atual>`); a sessão volta pelo cookie `.lyxai.com.br`. Com membership confirmada, o gate ativa a org do sistema na sessão (`ativarOrgDoSistema()`, setActive por slug). Pré-requisito pra funcionar em prod: a origin do front na allowlist de redirect do Hub (`lyx-hub-front/src/lib/login-redirect.ts`) e no `TRUSTED_ORIGINS` do monolito
-- `lib/auth-client.ts` — Better Auth + `organizationClient()`
-- `lib/api.ts`: fetch wrapper com `credentials: 'include'` (sem `Origin` à mão: no browser é header proibido e o fetch manda o real; server-side, passe no `init`)
-- `lib/example/queries.ts`: EXEMPLO de hooks TanStack Query (CRUD) contra `/items`, rota que não existe no monolito: só mostra o formato, apague ao clonar
-- `components/providers.tsx` — `QueryClientProvider` + `Toaster`
-- 15 componentes shadcn/ui em `src/components/ui/*`
+## Mapa
 
-**Stack confirmada:**
-
-- Next.js 16.2.x, React 19.2, Tailwind 4
-- Better Auth client 1.6.x (cookies cross-subdomain pra `*.lyxai.com.br`)
-- Zod 4.x + React Hook Form 7 pra forms
-- @tanstack/react-query 5
-- shadcn/ui (Radix UI primitives) + Lucide
-- Vitest + @vitest/coverage-v8 (env node por enquanto — jsdom quando 1º spec de componente entrar)
-
-## Setup local (zero pra rodar)
-
-```bash
-# Clonando o template pra criar um novo front:
-npx degit Lyx-Engenharia/lyx-front-template meu-novo-front
-cd meu-novo-front
-cp .env.example .env.local  # ajuste NEXT_PUBLIC_API_URL
-npm install
-npm run dev                  # next dev em :3001
-```
-
-Default `NEXT_PUBLIC_API_URL` aponta pra `http://localhost:3000` (monolito local). Pra apontar pra monolito de prod: `NEXT_PUBLIC_API_URL=https://api.lyxai.com.br`.
-
-> **Pra trabalhar diretamente NESTE repo** (mudar o template em si — adicionar feature, fix de bug, melhorar audit): siga o workflow abaixo.
-
-## Workflow
-
-Modelo de branches: **`feat/*` → PR → `develop` → PR → `main` → publicação do template**.
-
-1. Sai de `develop`: `git checkout develop && git pull && git checkout -b feat/<nome>`
-2. Codifica, roda local (`npm run dev`)
-3. **Antes de pushar:** `npm run audit:all` (lint + typecheck + deps:check + test:coverage + coverage:gate + audit:report)
-4. **Abre PR contra `develop`** → CI valida (`pr.yml`: lint + typecheck + tests + deps:check + sync-agents) → 1 approve obrigatório → merge
-5. **Quando pronto pra publicar baseline nova do template**: abre PR `develop` → `main` → 1 approve obrigatório → merge
-
-> Como esse é um repo **template** (não tem deploy próprio), `main` representa a baseline estável que devs vão clonar via `degit`. Fronts já clonados não são atualizados automaticamente — quem cuida disso é o owner do front clonado (pode pegar deltas via `git remote add template ...` se quiser).
+| Caminho | O que é | Quem lê |
+|---|---|---|
+| `.github/workflows/lyx-audit.yml` | o reusable | o `pr.yml` de cada front |
+| `.github/lyx-audit/*.mjs` | scripts da catraca | o reusable, por sparse checkout no `job.workflow_sha` |
+| `.github/lyx-audit/*.test.mjs`, `fixtures/` | testes (node:test) da catraca e do próprio YAML | o `pr.yml` daqui |
+| `packages/front-audit/` | `@lyxai/front-audit`, publicado no npm | `eslint.config.mjs`, `vitest.config.ts` e `.dependency-cruiser.cjs` dos fronts; o reusable usa os bins por `npx -p @lyxai/front-audit@^0` |
+| `.github/workflows/publish-front-audit.yml` | publica o pacote na tag `front-audit-v*` (OIDC) | GitHub |
+| `packages/sistema-admin/` | `@lyxai/sistema-admin`, publicado no npm | fronts que importam `SistemaAdminPanel` e `ChangePasswordCard` |
+| `consumidor/` | modelo do `pr.yml`, ESLint, dependency-cruiser e vitest de um front, e o `lume-vendorizado.mjs` (no front com o lume, a registry fica fora do lint e da cobertura) | quem liga um front ao CI |
+| `docs/TESTING.md`, `docs/AUDITORIA_AUTOMATIZADA.md` | regras de teste, catraca e checagens | os `pr.yml` dos fronts apontam para o `TESTING.md` |
 
 ## Regras invioláveis
 
-- 🔒 **Server Components não podem importar Better Auth client.** O client é `'use client'`-only. Server Actions chamam o monolito direto via `fetch` com `Origin` header (Better Auth exige Origin no CSRF).
-- 🔒 **Toda chamada `fetch` server-side pra `/api/auth/*` precisa de `Origin: https://<seu-front>.lyxai.com.br`** (ou o origin canônico do front clonado).
-- 🔒 **`NEXT_PUBLIC_*` vars são inlinadas em build.** Sempre use `||` (não `??`) pra cobrir caso `""` quando ARG não é passado no build. Pra URLs canônicas, hardcoded > env var. Todas são resolvidas num lugar só, `src/lib/env.ts` (`valorPublico`: fallback de produção = URL canônica, nunca `localhost`), e no deploy entram como **build args** (`ARG` + `ENV` no estágio de build do `Dockerfile`); `environment:` do container em runtime não muda o bundle.
-- 🔒 **Acesso ao sistema = membership na org do sistema, lida de `GET /me/profile`.** Sessão válida só prova que a pessoa existe na Lyx. Nunca decida acesso com `authClient.organization.list()`: o plugin não filtra `member.deletedAt` (acesso desativado continua na lista). O gate do front é porta de entrada; a autorização de verdade é do monolito.
-- 🔒 **Zod nos forms e nos response handlers.** Resposta do monolito é shape conhecido, mas valide na borda — protege contra drift entre front e back.
-- 🔒 **Sem testes mockando `fetch` ou Better Auth.** Quando precisar testar lógica que consome o monolito, isole a função pura e teste ela. Integração HTTP fica fora de teste.
+- 🔒 **Não renomeie o repo nem mova o `lyx-audit.yml`.** O caminho é o `uses:` de 29 repos.
+- 🔒 **Input existente do reusable não muda nem sai.** Input novo nasce opcional e com padrão que mantém o comportamento de hoje. O teste "os inputs de antes continuam lá" (`workflow.test.mjs`) cobra a lista.
+- 🔒 **Os scripts da catraca ficam em `.github/lyx-audit/*.mjs`.** O reusable faz sparse checkout desse padrão no mesmo commit do workflow.
+- 🔒 **Check novo segue o desenho do reusable:** `continue-on-error: true` no passo e o resultado no "Avaliar status final", que é quem barra. Assim o dev recebe tudo o que falhou, não só o primeiro.
+- 🔒 **A linha `::error::Falhas: <partes>` do último passo é contrato.** O `lyx-pr-agent` lê essa anotação (`src/divida-da-base.ts`) para comparar a PR com a base: partes em minúsculas, separadas por espaço. Anotação de outro passo não começa com `Falhas:`.
+- 🔒 **O YAML do reusable fica no subconjunto que o simulador lê** (`apoio-workflow.mjs`): mapas e listas por recuo, escalar simples ou entre aspas simples, blocos `|` e `>-`, comentário de linha inteira. Sem âncora e sem coleção inline. Nome de passo com `:` vai entre aspas simples.
+- 🔒 **Mudança no reusable vem com teste em `workflow.test.mjs`.** Passo que só usa bash, node e git roda de verdade no job simulado (lista `EXECUTAR`); o que chama npm, npx do pacote, gh ou `uses:` é simulado pelo cenário.
+- 🔒 **Exclude de cobertura sem padrão com `!`.** No `coverage.exclude` do vitest 4 ele não devolve o arquivo: tira tudo (lcov vazio, testado em 04/11/2026). O `consumidor/lume-vendorizado.mjs` usa só padrões positivos por isso.
+- 🔒 **`packages/sistema-admin/` fica enquanto houver front consumindo.** Em 04/11/2026 o `lyx-analise-credito-front` e o `lyx-contratos-front` dependem de `@lyxai/sistema-admin@^0.2.0`. A `main` tem o código da 0.1.0: a 0.2.0 saiu da branch `feat/sistema-admin-package`, que não entrou na `main`, e não há workflow de publicação desse pacote.
 
-## Convenções de código
+## O que o reusable faz, em ordem
 
-- **Imports absolutos** via alias `@/*` → `./src/*` (config em `tsconfig.json`).
-- **shadcn/ui** em `src/components/ui/` é gerado pela CLI; não editar manualmente — re-gerar via `npx shadcn add <component>`.
-- **Server Actions** em `src/app/<rota>/actions.ts` com `'use server'`. Validam input com Zod, chamam monolito, retornam DTO tipado.
-- **Hooks customizados** em `src/hooks/`.
-- **Helpers de domínio** em `src/lib/` (ex: `auth-client.ts`, `api.ts`, `acesso.ts`). Exemplos que não apontam pra rota real ficam em `src/lib/example/`.
-- **Componentes de feature** em `src/components/` (não em `src/components/ui/`).
+1. Checkout do front (fetch-depth 2) e os scripts da catraca.
+2. Node, `npm ci` (cai no `npm install` com aviso se o lock não bate).
+3. **lume:** com `lume.json` na raiz, ou `components.json` com `joaodadas/lume` ou `lume-ashmont`, roda `npx -y @joao.dadas/lume@^0.4 check` (minor do 0.x fixa; 0 = ok, 1 = violação, relatório por regra no log; teto de 5 minutos). Sem o marcador, pula. `lume-check: false` no `with:` desliga o passo (saída de emergência). A falha do lume não aparece no comentário do bot: o status final aponta o log do passo.
+4. Lint, typecheck, testes com cobertura, gate de cobertura (`lyx-coverage-gate`), dependency-cruiser.
+5. Catraca na PR: lint e cobertura contam só o que a PR piora.
+6. Relatório (`lyx-audit-report` e a catraca) como comentário `<!-- audit-report -->` na PR e no resumo da run.
+7. "Avaliar status final": `gate-mode: error` barra com `Falhas: <partes>`; `warn` deixa verde.
 
-## DON'T
+## Workflow deste repo
 
-- ❌ Importar Better Auth client em Server Component (use Server Action ou Route Handler)
-- ❌ Fetch server-side a `/api/auth/*` sem `Origin` header
-- ❌ `??` em `NEXT_PUBLIC_*` (use `||`)
-- ❌ Editar `src/components/ui/*` manualmente
-- ❌ Editar `CLAUDE.md`/`.cursorrules`/`.github/copilot-instructions.md` direto (edite `AGENTS.md` e rode `npm run sync-agents`)
-- ❌ Commitar `.env.local`
-- ❌ Criar arquivo > 500 linhas ou função > 80 linhas (lint **bloqueia merge** — quebra em helpers / sub-componentes)
-- ❌ Função com cyclomatic > 12 ou cognitive > 15 (lint **bloqueia merge**)
-- ❌ Criar `*.service.ts` ou `*.controller.ts` sem `*.spec.ts` sibling (regra `lyx/missing-spec` **bloqueia merge**)
-- ❌ Coverage abaixo de 75% lines / 40% branches (gate **bloqueia merge**)
-- ❌ Mockar `fetch`/Better Auth/dep externa em `*.spec.ts` unit — isso é integration test, vai em `*.integration.spec.ts`
+- PR contra `main`. Na `main`: merge só por `lyx-admins` e pelo agente, e PR com 1 aprovação (rulesets da org). O `lyx-pr-agent` não revisa este repo (fica na lista `SEMPRE_FORA` dele).
+- `npm ci` e `npm test` antes do push. `npm test` roda a catraca (`node --test .github/lyx-audit/*.test.mjs`) e os testes do `@lyxai/front-audit` e do `@lyxai/sistema-admin`; o CI roda também `npm run typecheck:front-audit` e o build do pacote.
+- O `pr.yml` daqui não roda o reusable (não há front aqui). Para ver uma mudança do reusable rodando no GitHub antes do merge: PR de teste num front com `uses: ...lyx-audit.yml@<branch>`, fechada sem merge.
+- Release do `@lyxai/front-audit`: bump numa PR com `npm version <patch|minor> -w @lyxai/front-audit --no-git-tag-version`, depois a tag `front-audit-vX.Y.Z` e o push da tag (passo a passo no topo do `publish-front-audit.yml`). Os bins (gate e relatório) o reusable roda por `npx -p @lyxai/front-audit@^0`: versão nova 0.x vale nos fronts sem PR neles. A config de ESLint, vitest e dependency-cruiser vem do lock de cada front.
 
-## Disciplina de testes
-
-**Doc canônica:** [`docs/TESTING.md`](docs/TESTING.md). Leitura obrigatória pra qualquer dev/AI.
-
-**Stack:** Vitest + @vitest/coverage-v8 + vitest workspaces (unit + integration).
-
-**3 tipos de teste:**
-- **Unit** (`*.spec.ts`) — função pura, sem I/O. Cobre lógica/regras.
-- **Integration** (`*.integration.spec.ts`) — função + dep externa mockada (fetch, auth). Cobre contrato.
-- **Smoke** (workflow separado pós-deploy) — não bloqueia PR.
-
-**Regras invioláveis (lint quebra):**
-
-- 🔒 Todo `*.service.ts` e `*.controller.ts` precisa de `*.spec.ts` sibling (regra ESLint `lyx/missing-spec`).
-- 🔒 Coverage gate: `lines >= 75%`, `branches >= 40%`. **Modo `error`** — bloqueia merge se violar.
-- 🔒 Tests co-located: spec ao lado do arquivo testado, mesmo nome + `.spec.ts`.
-- 🔒 Naming: `describe('<arquivo>', () => describe('<função>', () => it('cenário concreto')))`. **NÃO** `it('works')`.
-
-**Exemplo canônico:** [`src/lib/example/calc.service.{ts,spec.ts,integration.spec.ts}`](src/lib/example/) — leia antes de criar testes novos.
-
-## Auditoria automatizada (CI)
-
-CI roda via [reusable workflow `lyx-audit.yml`](.github/workflows/lyx-audit.yml). Outros repos importam:
-
-```yaml
-jobs:
-  audit:
-    uses: Lyx-Engenharia/lyx-front-template/.github/workflows/lyx-audit.yml@main
-    with:
-      coverage-lines: 75       # default
-      coverage-branches: 40    # default
-      gate-mode: error         # default
-    secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
-```
-
-Checks (todos **error** — bloqueia merge):
-
-- **Complexidade ciclomática** (`complexity` <= 12 por função)
-- **Complexidade cognitiva** (`sonarjs/cognitive-complexity` <= 15)
-- **Tamanho de arquivo** (`max-lines` <= 500; specs e `__fixtures__/` excluídos)
-- **Tamanho de função** (`max-lines-per-function` <= 80)
-- **Missing spec** (`lyx/missing-spec`) — `*.service.ts`/`*.controller.ts` sem `*.spec.ts`
-- **Cobertura** (lines >= 75%, branches >= 40%)
-- **Ciclos de import** (`dependency-cruiser` rule `no-circular`)
-
-Bot posta relatório consolidado em cada PR (marker `<!-- audit-report -->`). Reproduz local com `npm run audit:report`.
-
-**Antes de abrir PR:**
-
-```bash
-npm run audit:all
-```
-
-Pipeline completo: lint → typecheck → deps:check → test:coverage → coverage:gate → audit:report. Se passa local, passa no CI.
-
-> Como template, qualquer front novo nasce com pipeline ativo — basta importar o reusable workflow.
-
-Doc detalhada: [`docs/TESTING.md`](docs/TESTING.md) (didática) + [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md) (referência).
-
-## Comandos úteis
+## Comandos
 
 | Comando | O que faz |
 |---|---|
-| `npm run dev` | next dev em :3001 |
-| `npm run build` | next build |
-| `npm run start` | next start |
-| `npm run lint` | ESLint (Next + audit rules) |
-| `npm run typecheck` | tsc --noEmit |
-| `npm test` | vitest run (unit + integration) |
-| `npm run test:unit` | só unit (rápido) |
-| `npm run test:integration` | só integration |
-| `npm run test:watch` | vitest (watch mode) |
-| `npm run test:coverage` | vitest com lcov |
-| `npm run deps:check` | dependency-cruiser: ciclos de import |
-| `npm run coverage:gate` | gate global de cobertura (lê coverage/lcov.info) |
-| `npm run audit:report` | gera markdown do relatório consolidado |
-| `npm run audit:all` | pipeline completo local: lint + typecheck + deps:check + test:coverage + coverage:gate + audit:report |
+| `npm test` | catraca, `@lyxai/front-audit` e `@lyxai/sistema-admin` |
+| `npm run test:catraca` | `node --test .github/lyx-audit/*.test.mjs` |
+| `npm run test:front-audit` | vitest do `@lyxai/front-audit` |
+| `npm run test:sistema-admin` | vitest do `@lyxai/sistema-admin` |
+| `npm run typecheck:front-audit` | `tsc -p packages/front-audit --noEmit` |
+| `npm run build:front-audit` | tsup do `@lyxai/front-audit` |
 | `npm run sync-agents` | copia AGENTS.md pros 3 alvos (CLAUDE/cursor/copilot) |
 
-## Branching tier (escope do repo)
+`LYX_AUDIT_WORKFLOW=<caminho> node --test .github/lyx-audit/workflow.test.mjs` roda os testes do YAML contra outro arquivo (a versão da `main`, por exemplo).
 
-Este repo é **sandbox** (categoria 4 do branching tier Lyx) — sem rulesets, sem CODEOWNERS forçado. Veja `lyx-monolith/docs/adr/0004-branching-tier-system.md` pra contexto completo.
+## DON'T
 
-> Apesar de sandbox, este template é **fonte canônica do CI/audit** dos fronts/BIs Lyx. Mudanças aqui propagam (via reusable workflow) pra todos os repos consumidores no próximo PR deles.
+- ❌ Renomear o repo, mover o `lyx-audit.yml` ou mudar input existente
+- ❌ Passo novo no reusable sem `continue-on-error: true` e sem entrar no "Avaliar status final"
+- ❌ Mudar o formato da linha `::error::Falhas:` ou anotar `Falhas:` em outro passo
+- ❌ Recriar app de exemplo, `src/` ou `Dockerfile` aqui: front novo segue o `docs/FRONTEND_LUME.md` do `lyx-monolith`
+- ❌ Apagar `packages/sistema-admin/` enquanto houver front no `@lyxai/sistema-admin`
+- ❌ Editar `CLAUDE.md`/`.cursorrules`/`.github/copilot-instructions.md` direto (edite `AGENTS.md` e rode `npm run sync-agents`)
 
 ## Referências
 
-- [`docs/TESTING.md`](docs/TESTING.md) — **doc canônica de testes** (leitura obrigatória)
-- [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md) — detalhe técnico das checagens do CI
-- [`.github/workflows/lyx-audit.yml`](.github/workflows/lyx-audit.yml) — reusable workflow consumido por outros repos
-- `lyx-monolith` — backend que serve auth + API (`api.lyxai.com.br`)
-- `lyx-monolith/docs/adr/0004-branching-tier-system.md` — governança org-wide
+- [`consumidor/README.md`](consumidor/README.md): como ligar um front ao CI
+- [`docs/TESTING.md`](docs/TESTING.md): doc canônica de testes e da catraca
+- [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md): cada checagem do CI
+- `lyx-monolith/docs/adr/0004-branching-tier-system.md` e `0005-audit-pipeline-via-template.md`: governança e a decisão do pipeline via este repo

@@ -9,7 +9,7 @@ Tu vai escrever código que **outras pessoas vão mexer**. Sem teste, qualquer a
 Na Lyx, **teste é obrigatório**:
 - Coverage gate de **75% lines / 40% branches** (regra `error`, bloqueia merge). Na PR vale a catraca: barra o que a PR piora; o arquivo que ela cria ou altera abaixo do mínimo aparece como aviso (ver [Catraca na PR](#catraca-na-pr-padrão))
 - Todo `*.service.ts` e `*.controller.ts` precisa de `*.spec.ts` sibling (regra ESLint `lyx/missing-spec`)
-- CI roda em cada PR (`pr.yml` importa `lyx-audit.yml` do template)
+- CI roda em cada PR: o `pr.yml` do repo chama o `lyx-audit.yml` do lyx-front-template (modelo em [`consumidor/pr.yml`](../consumidor/pr.yml))
 
 ## Os 3 tipos de teste
 
@@ -33,7 +33,7 @@ Cada tipo cobre um nível diferente. Pensa em camadas:
 
 **Como roda:** `npm run test:unit` (ou `npm test` que roda tudo).
 
-**Exemplo canônico:** [`src/lib/example/calc.service.spec.ts`](../src/lib/example/calc.service.spec.ts)
+**Exemplo:**
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -70,9 +70,9 @@ describe("calc.service", () => {
 
 **Como roda:** `npm run test:integration` (ou `npm test`).
 
-**Como roda separado do unit:** `vitest.workspace.ts` define 2 projects (`unit` + `integration`) baseado no sufixo do nome do arquivo (`.spec.ts` vs `.integration.spec.ts`).
+**Como roda separado do unit:** o `vitest.config.ts` do front define 2 projects (`unit` + `integration`) pelo sufixo do nome do arquivo (`.spec.ts` vs `.integration.spec.ts`). Modelo em [`consumidor/vitest.config.ts`](../consumidor/vitest.config.ts).
 
-**Exemplo canônico:** [`src/lib/example/calc.service.integration.spec.ts`](../src/lib/example/calc.service.integration.spec.ts)
+**Exemplo:**
 
 ```ts
 import { describe, it, expect, vi } from "vitest";
@@ -156,7 +156,7 @@ error: Faltando spec sibling: src/services/users.service.spec.ts
 
 ## Coverage gate
 
-CI roda `npm run test:coverage` → gera `coverage/lcov.info` → `coverage-gate.ts` valida:
+CI roda `npm run test:coverage` → gera `coverage/lcov.info` → `lyx-coverage-gate` (bin do `@lyxai/front-audit`) valida:
 
 - **Lines ≥ 75%** (mínimo)
 - **Branches ≥ 40%** (mínimo)
@@ -172,6 +172,7 @@ with:
   gate-mode: error         # default
   ratchet: true            # default (catraca na PR, ver abaixo)
   coverage-files-gate: warn  # default (off | warn | error: cobertura por arquivo na PR)
+  lume-check: true         # default (false desliga a conferência do lume)
 ```
 
 Arquivos **excluídos** do coverage (não contam pro denominator):
@@ -180,7 +181,7 @@ Arquivos **excluídos** do coverage (não contam pro denominator):
 - `src/app/**/{layout,loading,error,not-found,page}.tsx` (Server Components — testar via integration ou e2e)
 - `src/**/types.ts`
 
-Ver `vitest.config.ts` pra lista completa.
+Lista completa: `lyxCoverageExclude`, em [`packages/front-audit/src/vitest-coverage.ts`](../packages/front-audit/src/vitest-coverage.ts).
 
 ### Catraca na PR (padrão)
 
@@ -221,7 +222,7 @@ on:
 
 Com o `push`, todo job do `pr.yml` passa a rodar também no push da main. Job que lê dados da PR (por exemplo `github.event.pull_request.base.sha` e `head.sha`, que ficam vazios no push) precisa de `if: github.event_name == 'pull_request'`.
 
-Testes da catraca (no template): `node --test .github/lyx-audit/*.test.mjs`. Eles rodam os passos do `lyx-audit.yml` de verdade (git, npm offline e ESLint num repo de teste), inclusive o job inteiro simulado, com as condições `if:` avaliadas como o GitHub avalia.
+Testes da catraca (neste repo): `npm run test:catraca`, que é `node --test .github/lyx-audit/*.test.mjs`. Eles rodam os passos do `lyx-audit.yml` de verdade (git, npm offline e ESLint num repo de teste), inclusive o job inteiro simulado, com as condições `if:` avaliadas como o GitHub avalia.
 
 ## Comandos canônicos
 
@@ -255,10 +256,7 @@ Não está. Coverage de 75% lines com asserts ruins (`expect(x).toBeDefined()`) 
 
 ## Referência
 
-- [`src/lib/example/calc.service.ts`](../src/lib/example/calc.service.ts) — código
-- [`src/lib/example/calc.service.spec.ts`](../src/lib/example/calc.service.spec.ts) — unit
-- [`src/lib/example/calc.service.integration.spec.ts`](../src/lib/example/calc.service.integration.spec.ts) — integration
-- [`vitest.workspace.ts`](../vitest.workspace.ts) — config dos projects
-- [`eslint-plugin-lyx-rules/missing-spec.js`](../eslint-plugin-lyx-rules/missing-spec.js) — regra
-- [`scripts/audit/coverage-gate.ts`](../scripts/audit/coverage-gate.ts) — gate
-- [`.github/workflows/lyx-audit.yml`](../.github/workflows/lyx-audit.yml) — reusable workflow
+- [`consumidor/`](../consumidor/): os arquivos que um front precisa para o CI (pr.yml, ESLint, dependency-cruiser e vitest com os projects)
+- [`packages/front-audit/src/eslint/missing-spec.ts`](../packages/front-audit/src/eslint/missing-spec.ts): a regra `lyx/missing-spec`
+- [`packages/front-audit/src/bin/coverage-gate.ts`](../packages/front-audit/src/bin/coverage-gate.ts): o gate de cobertura
+- [`.github/workflows/lyx-audit.yml`](../.github/workflows/lyx-audit.yml): o reusable workflow

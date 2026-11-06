@@ -10,10 +10,12 @@ name: Lyx Audit (reusable)
 #         coverage-lines: 75
 #         coverage-branches: 40
 #
-# Scripts e configs vêm do TEMPLATE (não copy-paste). Repo consumidor só
-# precisa ter `vitest.config.ts`, `eslint.config.mjs`, `.dependency-cruiser.cjs`
-# e `package.json` com scripts canônicos (lint, typecheck, test:coverage,
-# audit:report). O reusable cuida do resto.
+# Scripts e configs vêm deste repo (não copy-paste). O repo consumidor precisa
+# de `eslint.config.mjs`, `.dependency-cruiser.cjs`, `vitest.config.ts` e dos
+# scripts lint, typecheck, test:coverage e deps:check no `package.json`. Os
+# modelos estão em consumidor/ (README com os comandos). O reusable cuida do
+# resto. Este arquivo roda em todo front que o chama com @main: mudança aqui
+# vale para todos no próximo run deles.
 #
 # Veja docs/TESTING.md pra entender como escrever cada tipo de teste.
 #
@@ -116,6 +118,13 @@ on:
           'off' desliga. Ligue 'error' repo a repo.
         type: string
         default: 'warn'
+      lume-check:
+        description: >-
+          Conferência do lume (padrão true), que só roda no repo que adotou o
+          lume. false desliga o passo: saída de emergência para quando o pacote
+          do lume quebrar ou ficar fora do ar. Repo sem o lume não muda nada.
+        type: boolean
+        default: true
 
 permissions:
   pull-requests: write
@@ -147,7 +156,8 @@ jobs:
       # 2. Catraca: só os scripts .github/lyx-audit/*.mjs do template, no mesmo
       # commit deste workflow (job.workflow_sha), e logo movidos para fora do
       # workspace (RUNNER_TEMP), antes de qualquer lint/tsc/vitest do consumidor.
-      # No próprio template (dogfood) os scripts já estão no checkout.
+      # Se o workflow rodar no próprio lyx-front-template, os scripts já estão
+      # no checkout.
       - name: 'Catraca: scripts do template'
         if: ${{ inputs.ratchet && job.workflow_repository != github.repository }}
         uses: actions/checkout@v4
@@ -204,6 +214,40 @@ jobs:
             }
           else
             npm install --no-audit --no-fund
+          fi
+
+      # 4b. Conferência do lume (design system dos fronts), só no repo que o
+      # adotou: lume.json na raiz, ou components.json com joaodadas/lume ou
+      # lume-ashmont (a registry). Sem o marcador o passo diz que pulou e passa.
+      # Com ele, `@joao.dadas/lume check` sai 0 com tudo certo e 1 com violação,
+      # com o relatório por regra no log. Como os outros checks, segue com
+      # continue-on-error, e o "Avaliar status final" barra o job com "lume".
+      # A versão fica presa na minor do 0.x (^0.4): uma 0.5 com regra nova não
+      # entra sozinha em todos os fronts. Teto de 5 minutos (o npx baixa o
+      # pacote). `lume-check: false` no `with:` desliga o passo.
+      - name: 'lume: conferência (só repo que adotou o lume)'
+        id: lume
+        if: ${{ inputs.lume-check }}
+        shell: bash
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          marcador=""
+          if [ -f lume.json ]; then
+            marcador="lume.json na raiz"
+          elif [ -f components.json ] && grep -q -E 'joaodadas/lume|lume-ashmont' components.json; then
+            marcador="components.json com a registry do lume"
+          fi
+          if [ -z "$marcador" ]; then
+            echo "lume: pulou. Sem lume.json na raiz e sem joaodadas/lume ou lume-ashmont no components.json."
+            echo "adotou=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "adotou=true" >> "$GITHUB_OUTPUT"
+          echo "lume: o repo adotou o lume ($marcador). Rodando npx -y @joao.dadas/lume@^0.4 check."
+          if ! npx -y @joao.dadas/lume@^0.4 check; then
+            echo "::error::lume: a conferência achou violação ou não rodou (npx -y @joao.dadas/lume@^0.4 check). O relatório está no log deste passo."
+            exit 1
           fi
 
       # Catraca: sha da base (HEAD^1 do merge) e o diff da PR (git diff -z -M).
@@ -465,7 +509,8 @@ jobs:
       # 14. Fail job se algum check CRÍTICO falhou
       # Avalia outcomes de cada check e exit 1 com sumário claro.
       # Mode `warn`: nada bloqueia merge (mas comment ainda mostra status).
-      # Mode `error` (default): qualquer falha em lint/typecheck/tests/coverage/deps bloqueia.
+      # Mode `error` (default): qualquer falha em lint/typecheck/tests/coverage/deps bloqueia,
+      # e a do lume também, no repo que adotou o lume.
       - name: Avaliar status final
         if: always()
         env:
@@ -474,6 +519,9 @@ jobs:
           TESTS: ${{ steps.tests.outcome }}
           COVERAGE: ${{ steps.coverage_gate.outcome }}
           DEPS: ${{ steps.deps_check.outcome }}
+          LUME: ${{ steps.lume.outcome }}
+          LUME_ADOTOU: ${{ steps.lume.outputs.adotou }}
+          LUME_CHECK: ${{ inputs.lume-check }}
           GATE_MODE: ${{ inputs.gate-mode }}
           CATRACA_PEDIDA: ${{ inputs.ratchet }}
           CATRACA_ATIVA: ${{ steps.catraca.outputs.ativa }}
@@ -516,6 +564,13 @@ jobs:
           fi
           echo "Coverage gate:  $COVERAGE"
           echo "Deps check:     $DEPS"
+          if [ "$LUME_CHECK" = "false" ]; then
+            echo "Lume:           desligado (lume-check: false)"
+          elif [ "$LUME_ADOTOU" = "true" ]; then
+            echo "Lume:           $LUME"
+          else
+            echo "Lume:           pulou (repo sem o lume)"
+          fi
           echo "Gate mode:      $GATE_MODE"
           echo ""
 
@@ -530,9 +585,15 @@ jobs:
           [ "$TESTS" = "failure" ]     && FAILED="$FAILED tests"
           [ "$COVERAGE" = "failure" ]  && FAILED="$FAILED coverage"
           [ "$DEPS" = "failure" ]      && FAILED="$FAILED deps"
+          [ "$LUME" = "failure" ]      && FAILED="$FAILED lume"
 
+          # A linha "Falhas:" é contrato com o lyx-pr-agent (lê o texto exato):
+          # não mude. A do lume vem numa anotação à parte, depois dela.
           if [ -n "$FAILED" ]; then
             echo "::error::Falhas:$FAILED — veja o comment do bot no PR ou os logs acima."
+            if [ "$LUME" = "failure" ]; then
+              echo "::error::lume: o comentário do bot não tem a conferência do lume. O relatório por regra está no log do passo 'lume: conferência (só repo que adotou o lume)'."
+            fi
             exit 1
           fi
           echo "Tudo verde."
