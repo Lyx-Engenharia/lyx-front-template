@@ -141,7 +141,7 @@ describe('lyx-audit.yml', () => {
       const r = avaliar({ ...PR, LINT: 'success', COVERAGE: 'success', CATRACA_ATIVA: 'true', CATRACA_COBERTURA: 'success', LUME: 'failure', LUME_ADOTOU: 'true', LUME_CHECK: 'true' });
       assert.equal(r.status, 1);
       assert.match(r.saida, /Lume: +failure/);
-      assert.match(r.saida, /::error::Falhas: lume\. /);
+      assert.match(r.saida, /::error::Falhas: lume \W/);
       assert.match(r.saida, /::error::lume: o comentário do bot não tem a conferência do lume\. O relatório por regra está no log do passo 'lume: conferência \(só repo que adotou o lume\)'/);
     });
 
@@ -476,7 +476,7 @@ describe('lyx-audit.yml', () => {
         assert.equal(rodou(job, 'Catraca: cobertura'), false);
         assert.equal(rodou(job, 'Coverage gate (global)'), false);
         // Só o typecheck na lista de falhas (o que vem depois do nome é a pontuação da mensagem).
-        assert.match(job.final.saida, /::error::Falhas: typecheck\. /);
+        assert.match(job.final.saida, /::error::Falhas: typecheck \W/);
       } finally {
         r.limpar();
       }
@@ -565,7 +565,7 @@ describe('lyx-audit.yml', () => {
         for (const nome of ['Lint', 'Typecheck', 'Tests + coverage', 'Catraca: cobertura']) assert.equal(rodou(job, nome), true, nome);
         assert.equal(job.final.outcome, 'failure');
         assert.match(job.final.saida, /Lume: +failure/);
-        assert.match(job.final.saida, /::error::Falhas: lume\. /);
+        assert.match(job.final.saida, /::error::Falhas: lume \W/);
       } finally {
         rmSync(pasta, { recursive: true, force: true });
         r.limpar();

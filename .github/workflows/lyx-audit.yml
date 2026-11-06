@@ -587,8 +587,10 @@ jobs:
           [ "$DEPS" = "failure" ]      && FAILED="$FAILED deps"
           [ "$LUME" = "failure" ]      && FAILED="$FAILED lume"
 
+          # A linha "Falhas:" é contrato com o lyx-pr-agent (lê o texto exato):
+          # não mude. A do lume vem numa anotação à parte, depois dela.
           if [ -n "$FAILED" ]; then
-            echo "::error::Falhas:$FAILED. Veja o comentário do bot na PR ou os logs acima."
+            echo "::error::Falhas:$FAILED — veja o comment do bot no PR ou os logs acima."
             if [ "$LUME" = "failure" ]; then
               echo "::error::lume: o comentário do bot não tem a conferência do lume. O relatório por regra está no log do passo 'lume: conferência (só repo que adotou o lume)'."
             fi
