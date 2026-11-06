@@ -54,6 +54,8 @@ Modelo de branches: **`feat/*` → PR → `develop` → PR → `main` → public
 
 > Como esse é um repo **template** (não tem deploy próprio), `main` representa a baseline estável que devs vão clonar via `degit`. Fronts já clonados não são atualizados automaticamente — quem cuida disso é o owner do front clonado (pode pegar deltas via `git remote add template ...` se quiser).
 
+- Dúvida sobre PR, trem, deploy ou o agente de PRs (por que a PR não subiu, horários, conflito, Priorizar): leia https://github.com/Lyx-Engenharia/lyx-monolith/blob/main/docs/AGENTE_DE_PRS.md#perguntas-frequentes. Este repo não tem trem: o agente mergeia assim que aprova e o CI fica verde.
+
 ## Regras invioláveis
 
 - 🔒 **Server Components não podem importar Better Auth client.** O client é `'use client'`-only. Server Actions chamam o monolito direto via `fetch` com `Origin` header (Better Auth exige Origin no CSRF).
