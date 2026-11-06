@@ -57,7 +57,7 @@ O CI instala com `npm ci`. Lock fora de sincronia com o `package.json` cai no `n
 - Código em `src/`. O `deps:check` e o JSON do dependency-cruiser do CI olham `src`, e a cobertura inclui `src/**/*.{ts,tsx}`.
 - `tsconfig.json` na raiz: o `tsc --noEmit` e o preset do dependency-cruiser leem ele.
 - `coverage/lcov.info` depois do `test:coverage`: o gate de cobertura e a catraca leem esse arquivo. O `vitest.config.ts` daqui já grava ele.
-- jsdom 30 pede Node 22.22.2 ou mais novo, e o padrão do reusable é o Node 20. Com ele, ponha `node-version: '24'` no `with:` do `pr.yml`.
+- jsdom 30 pede Node 22.22.2 ou mais novo, e o padrão do reusable é o Node 20. O `pr.yml` daqui já traz `node-version: '24'` no `with:`.
 
 ## Front com o lume
 

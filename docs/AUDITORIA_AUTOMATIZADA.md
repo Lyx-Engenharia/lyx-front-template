@@ -84,8 +84,9 @@ Arquivos sem importadores — código morto provável.
 
 O lume é o design system dos fronts (registry do shadcn em `joaodadas/lume`). O passo `lume: conferência` roda só quando o front tem `lume.json` na raiz ou um `components.json` que contém `joaodadas/lume` ou `lume-ashmont`. Sem o marcador, o passo diz que pulou e passa.
 
-- **Comando:** `npx -y @joaodadas/lume@^0 check`. Sai 0 com tudo certo e 1 com violação, e o relatório por regra fica no log do passo.
-- **Severidade:** entra no status final como `lume` (`Falhas: lume`), como os outros checks: barra em `gate-mode: error` e é informativa em `warn`.
+- **Comando:** `npx -y @joaodadas/lume@^0.4 check` (minor do 0.x fixa: uma 0.5 não entra sozinha). Sai 0 com tudo certo e 1 com violação, e o relatório por regra fica no log do passo. Teto de 5 minutos.
+- **Severidade:** entra no status final como `lume` (`Falhas: lume`), como os outros checks: barra em `gate-mode: error` e é informativa em `warn`. O comentário do bot não tem seção do lume: com a falha, o status final aponta o log do passo.
+- **Desligar:** `lume-check: false` no `with:` do `pr.yml` (saída de emergência, padrão `true`). O resumo do status final mostra `Lume: desligado`.
 
 ## Política pra exceções
 

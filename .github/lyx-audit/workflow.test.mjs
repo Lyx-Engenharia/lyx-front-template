@@ -137,11 +137,24 @@ describe('lyx-audit.yml', () => {
       assert.equal(r.status, 0, r.saida);
     });
 
-    it('lume: a conferência que falha barra, e a linha de falhas diz que foi o lume', () => {
-      const r = avaliar({ ...PR, LINT: 'success', COVERAGE: 'success', CATRACA_ATIVA: 'true', CATRACA_COBERTURA: 'success', LUME: 'failure', LUME_ADOTOU: 'true' });
+    it('lume: a conferência que falha barra, a linha de falhas diz que foi o lume e aponta o log do passo', () => {
+      const r = avaliar({ ...PR, LINT: 'success', COVERAGE: 'success', CATRACA_ATIVA: 'true', CATRACA_COBERTURA: 'success', LUME: 'failure', LUME_ADOTOU: 'true', LUME_CHECK: 'true' });
       assert.equal(r.status, 1);
       assert.match(r.saida, /Lume: +failure/);
-      assert.match(r.saida, /::error::Falhas: lume \W/);
+      assert.match(r.saida, /::error::Falhas: lume\. /);
+      assert.match(r.saida, /::error::lume: o comentário do bot não tem a conferência do lume\. O relatório por regra está no log do passo 'lume: conferência \(só repo que adotou o lume\)'/);
+    });
+
+    it('falha que não é do lume não aponta o log do lume', () => {
+      const r = avaliar({ ...PR, LINT: 'failure', COVERAGE: 'success', LUME: 'success', LUME_ADOTOU: 'true', LUME_CHECK: 'true' });
+      assert.equal(r.status, 1);
+      assert.doesNotMatch(r.saida, /::error::lume:/);
+    });
+
+    it('lume: com lume-check: false o resumo diz que foi desligado, e o passo pulado não barra', () => {
+      const r = avaliar({ ...PR, LINT: 'success', COVERAGE: 'success', CATRACA_ATIVA: 'true', CATRACA_COBERTURA: 'success', LUME: 'skipped', LUME_ADOTOU: '', LUME_CHECK: 'false' });
+      assert.equal(r.status, 0, r.saida);
+      assert.match(r.saida, /Lume: +desligado \(lume-check: false\)/);
     });
 
     it('lume: repo sem o lume não muda nada, e o resumo diz que pulou', () => {
@@ -182,7 +195,7 @@ describe('lyx-audit.yml', () => {
     it('lume.json na raiz: roda o check do pacote, e o check verde deixa o passo verde', () => {
       const r = rodarLume({ 'lume.json': '{}' });
       assert.equal(r.status, 0, r.saida);
-      assert.deepEqual(r.chamadas, ['-y @joaodadas/lume@^0 check']);
+      assert.deepEqual(r.chamadas, ['-y @joaodadas/lume@^0.4 check']);
       assert.match(r.outputs, /^adotou=true$/m);
       assert.match(r.saida, /relatório do lume \(falso\)/);
     });
@@ -192,7 +205,7 @@ describe('lyx-audit.yml', () => {
       for (const componentes of registries) {
         const r = rodarLume({ 'components.json': componentes });
         assert.equal(r.status, 0, r.saida);
-        assert.deepEqual(r.chamadas, ['-y @joaodadas/lume@^0 check'], componentes);
+        assert.deepEqual(r.chamadas, ['-y @joaodadas/lume@^0.4 check'], componentes);
       }
     });
 
@@ -463,7 +476,7 @@ describe('lyx-audit.yml', () => {
         assert.equal(rodou(job, 'Catraca: cobertura'), false);
         assert.equal(rodou(job, 'Coverage gate (global)'), false);
         // Só o typecheck na lista de falhas (o que vem depois do nome é a pontuação da mensagem).
-        assert.match(job.final.saida, /::error::Falhas: typecheck \W/);
+        assert.match(job.final.saida, /::error::Falhas: typecheck\. /);
       } finally {
         r.limpar();
       }
@@ -547,16 +560,39 @@ describe('lyx-audit.yml', () => {
       try {
         const npx = npxFalso(pasta, { saida: 1 });
         const job = rodar(r, { path: `${npx.bin}:${process.env.PATH}`, simulados: consumidor({ headCobertura: { 'src/resto.js': [100, 90], 'src/novo.js': [10, 10] } }) });
-        assert.deepEqual(npx.chamadas(), ['-y @joaodadas/lume@^0 check']);
+        assert.deepEqual(npx.chamadas(), ['-y @joaodadas/lume@^0.4 check']);
         assert.equal(job.por(PASSO_DO_LUME).outcome, 'failure');
         for (const nome of ['Lint', 'Typecheck', 'Tests + coverage', 'Catraca: cobertura']) assert.equal(rodou(job, nome), true, nome);
         assert.equal(job.final.outcome, 'failure');
         assert.match(job.final.saida, /Lume: +failure/);
-        assert.match(job.final.saida, /::error::Falhas: lume \W/);
+        assert.match(job.final.saida, /::error::Falhas: lume\. /);
       } finally {
         rmSync(pasta, { recursive: true, force: true });
         r.limpar();
       }
+    });
+
+    it('lume-check: false num repo que adotou o lume: o passo não roda, o npx não é chamado e o job fica verde', { skip: pular }, () => {
+      const r = repo({ baseCobertura: { 'src/resto.js': [100, 90] }, pr: (raiz) => escrever(raiz, { 'lume.json': '{}', 'src/novo.js': 'export const novo = 1;\n' }) });
+      const pasta = pastaTemporaria('npx');
+      try {
+        const npx = npxFalso(pasta, { saida: 1 });
+        const job = rodar(r, { inputs: { 'lume-check': false }, path: `${npx.bin}:${process.env.PATH}`, simulados: consumidor({ headCobertura: { 'src/resto.js': [100, 90], 'src/novo.js': [10, 10] } }) });
+        assert.equal(rodou(job, PASSO_DO_LUME), false);
+        assert.deepEqual(npx.chamadas(), []);
+        assert.equal(job.final.outcome, 'success', job.final.saida);
+        assert.match(job.final.saida, /Lume: +desligado/);
+      } finally {
+        rmSync(pasta, { recursive: true, force: true });
+        r.limpar();
+      }
+    });
+
+    it('lume: o passo tem teto de 5 minutos e o input lume-check nasce true', () => {
+      const passo = WF.jobs.audit.steps.find((p) => p.name === PASSO_DO_LUME);
+      assert.equal(passo['timeout-minutes'], 5);
+      assert.equal(passo.if, '${{ inputs.lume-check }}');
+      assert.deepEqual(WF.on.workflow_call.inputs['lume-check'].default, true);
     });
 
     it('push na main: publica a cobertura da main, sem catraca, e lint e cobertura do repo ficam informativos', { skip: pular }, () => {

@@ -40,7 +40,7 @@ Siga o [`consumidor/README.md`](consumidor/README.md): cinco arquivos para copia
 - **Testes e cobertura:** 75% de linhas e 40% de branches no repo inteiro.
 - **Ciclos de import:** dependency-cruiser, zero.
 - **Catraca na PR (padrão):** lint e cobertura barram só o que a PR piora.
-- **lume:** `npx -y @joaodadas/lume@^0 check`, só no repo que adotou o lume (`lume.json` na raiz, ou `components.json` com `joaodadas/lume` ou `lume-ashmont`).
+- **lume:** `npx -y @joaodadas/lume@^0.4 check`, só no repo que adotou o lume (`lume.json` na raiz, ou `components.json` com `joaodadas/lume` ou `lume-ashmont`), com teto de 5 minutos. `lume-check: false` no `with:` desliga o passo.
 
 Todos rodam até o fim, e o último passo decide o status. O relatório vira comentário na PR. Detalhe em [`docs/AUDITORIA_AUTOMATIZADA.md`](docs/AUDITORIA_AUTOMATIZADA.md) e [`docs/TESTING.md`](docs/TESTING.md).
 
@@ -48,11 +48,11 @@ Todos rodam até o fim, e o último passo decide o status. O relatório vira com
 
 ```bash
 npm ci
-npm test                       # catraca (node --test) e @lyxai/front-audit (vitest)
+npm test                       # catraca (node --test), @lyxai/front-audit e @lyxai/sistema-admin (vitest)
 npm run typecheck:front-audit
 npm run sync-agents            # depois de editar o AGENTS.md
 ```
 
-- PR contra `main`. O CI daqui (`pr.yml`) roda o sync do AGENTS.md, os testes da catraca e o typecheck, o build e os testes do `@lyxai/front-audit`.
+- PR contra `main`. O CI daqui (`pr.yml`) roda o sync do AGENTS.md, os testes da catraca e o typecheck, o build e os testes do `@lyxai/front-audit` e os testes do `@lyxai/sistema-admin`.
 - O `pr.yml` daqui não roda o reusable: o repo não tem front. Os testes da catraca rodam os passos do `lyx-audit.yml` de verdade e simulam o job inteiro. Para ver uma mudança no reusable rodando no GitHub antes do merge, abra uma PR de teste num front com `uses: ...lyx-audit.yml@<sua-branch>`.
 - Release do `@lyxai/front-audit`: o passo a passo está no topo do `publish-front-audit.yml`.

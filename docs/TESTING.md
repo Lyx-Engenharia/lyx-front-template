@@ -172,6 +172,7 @@ with:
   gate-mode: error         # default
   ratchet: true            # default (catraca na PR, ver abaixo)
   coverage-files-gate: warn  # default (off | warn | error: cobertura por arquivo na PR)
+  lume-check: true         # default (false desliga a conferência do lume)
 ```
 
 Arquivos **excluídos** do coverage (não contam pro denominator):

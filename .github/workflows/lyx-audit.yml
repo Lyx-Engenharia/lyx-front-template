@@ -118,6 +118,13 @@ on:
           'off' desliga. Ligue 'error' repo a repo.
         type: string
         default: 'warn'
+      lume-check:
+        description: >-
+          Conferência do lume (padrão true), que só roda no repo que adotou o
+          lume. false desliga o passo: saída de emergência para quando o pacote
+          do lume quebrar ou ficar fora do ar. Repo sem o lume não muda nada.
+        type: boolean
+        default: true
 
 permissions:
   pull-requests: write
@@ -215,10 +222,15 @@ jobs:
       # Com ele, `@joaodadas/lume check` sai 0 com tudo certo e 1 com violação,
       # com o relatório por regra no log. Como os outros checks, segue com
       # continue-on-error, e o "Avaliar status final" barra o job com "lume".
+      # A versão fica presa na minor do 0.x (^0.4): uma 0.5 com regra nova não
+      # entra sozinha em todos os fronts. Teto de 5 minutos (o npx baixa o
+      # pacote). `lume-check: false` no `with:` desliga o passo.
       - name: 'lume: conferência (só repo que adotou o lume)'
         id: lume
+        if: ${{ inputs.lume-check }}
         shell: bash
         continue-on-error: true
+        timeout-minutes: 5
         run: |
           marcador=""
           if [ -f lume.json ]; then
@@ -232,9 +244,9 @@ jobs:
             exit 0
           fi
           echo "adotou=true" >> "$GITHUB_OUTPUT"
-          echo "lume: o repo adotou o lume ($marcador). Rodando npx -y @joaodadas/lume@^0 check."
-          if ! npx -y @joaodadas/lume@^0 check; then
-            echo "::error::lume: a conferência achou violação ou não rodou (npx -y @joaodadas/lume@^0 check). O relatório está no log deste passo."
+          echo "lume: o repo adotou o lume ($marcador). Rodando npx -y @joaodadas/lume@^0.4 check."
+          if ! npx -y @joaodadas/lume@^0.4 check; then
+            echo "::error::lume: a conferência achou violação ou não rodou (npx -y @joaodadas/lume@^0.4 check). O relatório está no log deste passo."
             exit 1
           fi
 
@@ -509,6 +521,7 @@ jobs:
           DEPS: ${{ steps.deps_check.outcome }}
           LUME: ${{ steps.lume.outcome }}
           LUME_ADOTOU: ${{ steps.lume.outputs.adotou }}
+          LUME_CHECK: ${{ inputs.lume-check }}
           GATE_MODE: ${{ inputs.gate-mode }}
           CATRACA_PEDIDA: ${{ inputs.ratchet }}
           CATRACA_ATIVA: ${{ steps.catraca.outputs.ativa }}
@@ -551,7 +564,9 @@ jobs:
           fi
           echo "Coverage gate:  $COVERAGE"
           echo "Deps check:     $DEPS"
-          if [ "$LUME_ADOTOU" = "true" ]; then
+          if [ "$LUME_CHECK" = "false" ]; then
+            echo "Lume:           desligado (lume-check: false)"
+          elif [ "$LUME_ADOTOU" = "true" ]; then
             echo "Lume:           $LUME"
           else
             echo "Lume:           pulou (repo sem o lume)"
@@ -573,7 +588,10 @@ jobs:
           [ "$LUME" = "failure" ]      && FAILED="$FAILED lume"
 
           if [ -n "$FAILED" ]; then
-            echo "::error::Falhas:$FAILED — veja o comment do bot no PR ou os logs acima."
+            echo "::error::Falhas:$FAILED. Veja o comentário do bot na PR ou os logs acima."
+            if [ "$LUME" = "failure" ]; then
+              echo "::error::lume: o comentário do bot não tem a conferência do lume. O relatório por regra está no log do passo 'lume: conferência (só repo que adotou o lume)'."
+            fi
             exit 1
           fi
           echo "Tudo verde."

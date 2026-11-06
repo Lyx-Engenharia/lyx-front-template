@@ -5,9 +5,10 @@
   "description": "CI compartilhado dos fronts Lyx: o reusable lyx-audit.yml, a catraca e os pacotes @lyxai/front-audit e @lyxai/sistema-admin.",
   "workspaces": ["packages/*"],
   "scripts": {
-    "test": "npm run test:catraca && npm run test:front-audit",
+    "test": "npm run test:catraca && npm run test:front-audit && npm run test:sistema-admin",
     "test:catraca": "node --test .github/lyx-audit/*.test.mjs",
     "test:front-audit": "npm test -w @lyxai/front-audit",
+    "test:sistema-admin": "npm test -w @lyxai/sistema-admin",
     "typecheck:front-audit": "tsc -p packages/front-audit --noEmit",
     "build:front-audit": "npm run build -w @lyxai/front-audit",
     "sync-agents": "tsx scripts/sync-agents.ts"

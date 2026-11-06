@@ -80,3 +80,19 @@ jobs:
         run: npm run build:front-audit
       - name: Testes do @lyxai/front-audit
         run: npm run test:front-audit
+
+  sistema-admin:
+    # O pacote @lyxai/sistema-admin (painel Admin de Sistema e perfil) que os
+    # fronts instalam. O npm ci builda o pacote (script prepare); aqui rodam os
+    # testes dele (vitest com jsdom).
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Testes do @lyxai/sistema-admin
+        run: npm run test:sistema-admin
