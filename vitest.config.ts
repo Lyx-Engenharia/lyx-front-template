@@ -11,8 +11,9 @@ import { lyxCoverageExclude } from '@lyxai/front-audit/vitest-coverage';
  *   - unit: `*.spec.ts(x)` — exceto `*.integration.spec.ts(x)`
  *   - integration: `*.integration.spec.ts(x)` — testTimeout maior, pool forks
  * - Roda `npm run test:unit`, `npm run test:integration` ou `npm test` (tudo).
- * - `node` como ambiente default. Quando o primeiro `*.spec.tsx` de componente
- *   React entrar: `npm install -D jsdom` e mudar `environment` pra `'jsdom'`.
+ * - `node` como ambiente default. Spec de componente React pede o DOM só no
+ *   arquivo dele, com `// @vitest-environment jsdom` na primeira linha, e usa
+ *   o @testing-library/react (molde: `src/components/lyx-modal.spec.tsx`).
  */
 export default defineConfig({
   resolve: {
@@ -39,7 +40,6 @@ export default defineConfig({
         'src/lib/example/queries.ts',
         'src/lib/utils.ts',
         'src/components/providers.tsx',
-        'src/components/lyx-modal.tsx',
         'src/components/theme-toggle.tsx',
         // scripts/audit ficam excluídos no template (são utilitários) — repos
         // consumidores não importam isso (vem do checkout do template no workflow).
