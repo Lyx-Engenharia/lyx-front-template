@@ -1,0 +1,26 @@
+name: PR Validation
+
+# Modelo do .github/workflows/pr.yml de um front. O reusable mora no
+# lyx-front-template e é o mesmo para todos os fronts: não copie a definição
+# dele para cá. Inputs e regras: lyx-front-template/docs/TESTING.md
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  pull-requests: write # o relatório do audit vira comentário na PR
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    uses: Lyx-Engenharia/lyx-front-template/.github/workflows/lyx-audit.yml@main
+    with:
+      coverage-lines: 75
+      coverage-branches: 40
+      gate-mode: error
+      node-version: '24' # jsdom 30 pede Node 22.22.2 ou mais novo; o padrão do reusable é o 20
+      runs-on: ubuntu-24.04-arm
