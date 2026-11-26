@@ -23,6 +23,8 @@ Repo **só de CI compartilhado** dos fronts da Lyx. Tem o reusable `lyx-audit.ym
 | `consumidor/` | modelo do `pr.yml`, ESLint, dependency-cruiser e vitest de um front, e o `lume-vendorizado.mjs` (no front com o lume, a registry fica fora do lint e da cobertura) | quem liga um front ao CI |
 | `docs/TESTING.md`, `docs/AUDITORIA_AUTOMATIZADA.md` | regras de teste, catraca e checagens | os `pr.yml` dos fronts apontam para o `TESTING.md` |
 
+- Dúvida sobre PR, trem, deploy ou o agente de PRs (por que a PR não subiu, horários, conflito, Priorizar): leia https://github.com/Lyx-Engenharia/lyx-monolith/blob/main/docs/AGENTE_DE_PRS.md#perguntas-frequentes. Este repo não tem trem: o agente mergeia assim que aprova e o CI fica verde.
+
 ## Regras invioláveis
 
 - 🔒 **Não renomeie o repo nem mova o `lyx-audit.yml`.** O caminho é o `uses:` de 29 repos.
